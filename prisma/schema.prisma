@@ -1,0 +1,131 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Rabbit {
+  id            String    @id @default(cuid())
+  name          String
+  identifiant   String    @unique
+  race          String
+  sexe          String    // "male" | "femelle"
+  dateNaissance DateTime
+  poids         Float?
+  couleur       String?
+  statut        String    @default("actif") // "actif" | "vendu" | "decede" | "reproducteur"
+  notes         String?
+  cageNumero    String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  accouplementsMale    Accouplement[] @relation("pere")
+  accouplementsFemelle Accouplement[] @relation("mere")
+  santeLogs            SanteLog[]
+  poidsLogs            PoidsLog[]
+}
+
+model Accouplement {
+  id            String    @id @default(cuid())
+  dateAccouplement DateTime
+  pereId        String
+  mereId        String
+  dateMiseBas   DateTime?  // dateAccouplement + 31 jours
+  statut        String    @default("en_cours") // "en_cours" | "mise_bas" | "echec"
+  nombreNes     Int?
+  nombreVivants Int?
+  dateSevrage   DateTime?
+  notes         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  pere Rabbit @relation("pere", fields: [pereId], references: [id])
+  mere Rabbit @relation("mere", fields: [mereId], references: [id])
+
+  lapereaux Lapereau[]
+}
+
+model Lapereau {
+  id             String    @id @default(cuid())
+  accouplementId String
+  identifiant    String?
+  sexe           String?
+  poids          Float?
+  statut         String    @default("vivant") // "vivant" | "mort" | "sevré" | "vendu"
+  notes          String?
+  createdAt      DateTime  @default(now())
+
+  accouplement Accouplement @relation(fields: [accouplementId], references: [id])
+}
+
+model SanteLog {
+  id          String   @id @default(cuid())
+  rabbitId    String
+  type        String   // "vaccin" | "traitement" | "observation" | "veterinaire"
+  description String
+  date        DateTime
+  prochainRappel DateTime?
+  veterinaire String?
+  cout        Float?
+  notes       String?
+  createdAt   DateTime @default(now())
+
+  rabbit Rabbit @relation(fields: [rabbitId], references: [id])
+}
+
+model PoidsLog {
+  id       String   @id @default(cuid())
+  rabbitId String
+  poids    Float
+  date     DateTime
+  notes    String?
+
+  rabbit Rabbit @relation(fields: [rabbitId], references: [id])
+}
+
+model Aliment {
+  id           String   @id @default(cuid())
+  nom          String
+  type         String   // "foin" | "granules" | "legumes" | "supplement" | "autre"
+  unite        String   @default("kg")  // "kg" | "g" | "L" | "botte"
+  stockActuel  Float    @default(0)
+  stockMin     Float    @default(5)     // seuil d'alerte
+  prixUnitaire Float?
+  fournisseur  String?
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  distributions DistributionAliment[]
+}
+
+model DistributionAliment {
+  id         String   @id @default(cuid())
+  alimentId  String
+  date       DateTime @default(now())
+  quantite   Float
+  cageNumero String?
+  notes      String?
+  createdAt  DateTime @default(now())
+
+  aliment    Aliment  @relation(fields: [alimentId], references: [id])
+}
+
+model Transaction {
+  id          String   @id @default(cuid())
+  type        String   // "depense" | "recette"
+  categorie   String   // "alimentation" | "veterinaire" | "equipement" | "vente_lapin" | "vente_viande" | "reproduction" | "autre"
+  montant     Float
+  date        DateTime
+  description String
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}

@@ -1,0 +1,166 @@
+"use client";
+
+import { useState } from "react";
+import { Plus, Loader2 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+
+interface AddRabbitFormProps {
+  onSuccess: () => void;
+}
+
+export function AddRabbitForm({ onSuccess }: AddRabbitFormProps) {
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const [form, setForm] = useState({
+    name: "",
+    identifiant: "",
+    race: "",
+    sexe: "femelle",
+    dateNaissance: "",
+    poids: "",
+    couleur: "",
+    statut: "actif",
+    cageNumero: "",
+    notes: "",
+  });
+
+  const field = (key: keyof typeof form) => (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+  ) => setForm((f) => ({ ...f, [key]: e.target.value }));
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+
+    try {
+      const res = await fetch("/api/rabbits", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Erreur inconnue");
+
+      setOpen(false);
+      setForm({ name: "", identifiant: "", race: "", sexe: "femelle", dateNaissance: "", poids: "", couleur: "", statut: "actif", cageNumero: "", notes: "" });
+      onSuccess();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Erreur inconnue");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <button className="inline-flex items-center gap-2 bg-forest-600 hover:bg-forest-700 text-white text-sm font-medium px-4 py-2.5 rounded-lg transition-colors">
+          <Plus className="h-4 w-4" />
+          Ajouter un lapin
+        </button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>🐇 Nouveau lapin</DialogTitle>
+        </DialogHeader>
+
+        <form onSubmit={handleSubmit} className="space-y-4 mt-2">
+          {/* Nom + Identifiant */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="name">Nom *</Label>
+              <Input id="name" placeholder="Ex : Blanche" value={form.name} onChange={field("name")} required />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="identifiant">Identifiant *</Label>
+              <Input id="identifiant" placeholder="Ex : F-001" value={form.identifiant} onChange={field("identifiant")} required />
+            </div>
+          </div>
+
+          {/* Race */}
+          <div className="space-y-1.5">
+            <Label htmlFor="race">Race *</Label>
+            <Input id="race" placeholder="Ex : Néo-Zélandais" value={form.race} onChange={field("race")} required />
+          </div>
+
+          {/* Sexe + Statut */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="sexe">Sexe *</Label>
+              <Select id="sexe" value={form.sexe} onChange={field("sexe")}>
+                <option value="femelle">♀ Femelle</option>
+                <option value="male">♂ Mâle</option>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="statut">Statut</Label>
+              <Select id="statut" value={form.statut} onChange={field("statut")}>
+                <option value="actif">Actif</option>
+                <option value="reproducteur">Reproducteur</option>
+                <option value="vendu">Vendu</option>
+                <option value="decede">Décédé</option>
+              </Select>
+            </div>
+          </div>
+
+          {/* Date naissance */}
+          <div className="space-y-1.5">
+            <Label htmlFor="dateNaissance">Date de naissance *</Label>
+            <Input id="dateNaissance" type="date" value={form.dateNaissance} onChange={field("dateNaissance")} required />
+          </div>
+
+          {/* Poids + Couleur + Cage */}
+          <div className="grid grid-cols-3 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="poids">Poids (kg)</Label>
+              <Input id="poids" type="number" step="0.01" placeholder="Ex : 4.2" value={form.poids} onChange={field("poids")} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="couleur">Couleur</Label>
+              <Input id="couleur" placeholder="Ex : Blanc" value={form.couleur} onChange={field("couleur")} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="cageNumero">Cage N°</Label>
+              <Input id="cageNumero" placeholder="Ex : A1" value={form.cageNumero} onChange={field("cageNumero")} />
+            </div>
+          </div>
+
+          {/* Notes */}
+          <div className="space-y-1.5">
+            <Label htmlFor="notes">Notes</Label>
+            <Textarea id="notes" placeholder="Observations particulières..." value={form.notes} onChange={field("notes")} />
+          </div>
+
+          {error && (
+            <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+              {error}
+            </p>
+          )}
+
+          <div className="flex justify-end gap-2 pt-2">
+            <button type="button" onClick={() => setOpen(false)} className="px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-earth-100 rounded-lg transition-colors">
+              Annuler
+            </button>
+            <button type="submit" disabled={loading} className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium bg-forest-600 hover:bg-forest-700 text-white rounded-lg transition-colors disabled:opacity-60">
+              {loading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              {loading ? "Enregistrement..." : "Enregistrer"}
+            </button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
