@@ -93,7 +93,33 @@ export function AddRabbitForm({ onSuccess }: AddRabbitFormProps) {
           {/* Race */}
           <div className="space-y-1.5">
             <Label htmlFor="race">Race *</Label>
-            <Input id="race" placeholder="Ex : Néo-Zélandais" value={form.race} onChange={field("race")} required />
+            <Select id="race" value={form.race} onChange={field("race")} required>
+              <option value="">— Choisir une race —</option>
+              <optgroup label="Races à viande">
+                <option value="Néo-Zélandais">Néo-Zélandais</option>
+                <option value="Californien">Californien</option>
+                <option value="Fauve de Bourgogne">Fauve de Bourgogne</option>
+                <option value="Géant Blanc de Bouscat">Géant Blanc de Bouscat</option>
+                <option value="Géant des Flandres">Géant des Flandres</option>
+                <option value="Blanc de Termonde">Blanc de Termonde</option>
+                <option value="Argenté de Champagne">Argenté de Champagne</option>
+                <option value="Bélier Français">Bélier Français</option>
+                <option value="Géant Papillon">Géant Papillon</option>
+              </optgroup>
+              <optgroup label="Races mixtes">
+                <option value="Lapin Commun Local">Lapin Commun Local</option>
+                <option value="Croisé Néo-Californien">Croisé Néo-Californien</option>
+                <option value="Bouscat × Néo-Zélandais">Bouscat × Néo-Zélandais</option>
+              </optgroup>
+              <optgroup label="Races légères / ornement">
+                <option value="Nain de Hollande">Nain de Hollande</option>
+                <option value="Rex">Rex</option>
+                <option value="Angora Français">Angora Français</option>
+                <option value="Lapin Angora Géant">Lapin Angora Géant</option>
+                <option value="Russe (Himalayan)">Russe (Himalayan)</option>
+              </optgroup>
+              <option value="Autre">Autre / Race non listée</option>
+            </Select>
           </div>
 
           {/* Sexe + Statut */}

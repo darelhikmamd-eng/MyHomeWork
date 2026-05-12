@@ -1,8 +1,21 @@
-import { Rabbit } from "@/lib/mock-data";
 import { calculateAge, formatDate } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
 import { Weight, Calendar, Home, Tag } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { EditRabbitForm } from "@/components/forms/edit-rabbit-form";
+
+interface Rabbit {
+  id: string;
+  name: string;
+  identifiant: string;
+  race: string;
+  sexe: string;
+  statut: string;
+  poids: number | null;
+  couleur: string | null;
+  cageNumero: string | null;
+  dateNaissance: string | null;
+  notes: string | null;
+}
 
 const statusConfig = {
   actif: { label: "Actif", className: "bg-forest-100 text-forest-700 border-forest-200" },
@@ -25,11 +38,12 @@ const raceColors: Record<string, string> = {
 interface RabbitCardProps {
   rabbit: Rabbit;
   onClick?: () => void;
+  onUpdate?: () => void;
 }
 
-export function RabbitCard({ rabbit, onClick }: RabbitCardProps) {
-  const status = statusConfig[rabbit.statut];
-  const sexe = sexeConfig[rabbit.sexe];
+export function RabbitCard({ rabbit, onClick, onUpdate }: RabbitCardProps) {
+  const status = statusConfig[rabbit.statut as keyof typeof statusConfig] ?? statusConfig.actif;
+  const sexe = sexeConfig[rabbit.sexe as keyof typeof sexeConfig] ?? sexeConfig.femelle;
   const gradientClass = raceColors[rabbit.race] || "from-cream-100 to-cream-50";
 
   return (
@@ -50,7 +64,10 @@ export function RabbitCard({ rabbit, onClick }: RabbitCardProps) {
         <div className="w-14 h-14 bg-white/80 rounded-full flex items-center justify-center shadow-sm">
           <span className="text-3xl">🐇</span>
         </div>
-        <div className="absolute top-2 right-2">
+        <div className="absolute top-2 right-2 flex items-center gap-1.5">
+          {onUpdate && (
+            <EditRabbitForm rabbit={rabbit} onSuccess={onUpdate} />
+          )}
           <span
             className={cn(
               "text-xs font-semibold px-2 py-0.5 rounded-full border",
@@ -91,9 +108,9 @@ export function RabbitCard({ rabbit, onClick }: RabbitCardProps) {
           </div>
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <Calendar className="h-3.5 w-3.5 text-earth-400 flex-shrink-0" />
-            <span>{formatDate(rabbit.dateNaissance)}</span>
+            <span>{rabbit.dateNaissance ? formatDate(rabbit.dateNaissance) : "—"}</span>
             <span className="ml-auto font-semibold text-forest-600">
-              {calculateAge(rabbit.dateNaissance)}
+              {rabbit.dateNaissance ? calculateAge(rabbit.dateNaissance) : "—"}
             </span>
           </div>
           <div className="flex items-center gap-2 text-xs text-muted-foreground">

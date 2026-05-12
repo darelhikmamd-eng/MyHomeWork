@@ -18,6 +18,51 @@ interface Props {
   onSuccess: () => void;
 }
 
+const CATALOGUE: { label: string; items: { nom: string; type: string; unite: string; stockMin: string }[] }[] = [
+  {
+    label: "🌾 Fourrages",
+    items: [
+      { nom: "Foin de prairie", type: "foin", unite: "kg", stockMin: "20" },
+      { nom: "Foin de luzerne", type: "foin", unite: "kg", stockMin: "15" },
+      { nom: "Foin de trèfle", type: "foin", unite: "kg", stockMin: "10" },
+      { nom: "Paille de blé", type: "foin", unite: "botte", stockMin: "5" },
+      { nom: "Herbe fraîche", type: "foin", unite: "kg", stockMin: "5" },
+    ],
+  },
+  {
+    label: "🟤 Granulés & Concentrés",
+    items: [
+      { nom: "Granulés croissance", type: "granules", unite: "kg", stockMin: "10" },
+      { nom: "Granulés reproduction", type: "granules", unite: "kg", stockMin: "10" },
+      { nom: "Granulés entretien", type: "granules", unite: "kg", stockMin: "10" },
+      { nom: "Granulés maternité", type: "granules", unite: "kg", stockMin: "5" },
+      { nom: "Aliment complet universel", type: "granules", unite: "kg", stockMin: "10" },
+      { nom: "Son de blé", type: "granules", unite: "kg", stockMin: "5" },
+    ],
+  },
+  {
+    label: "🥬 Légumes & Verdure",
+    items: [
+      { nom: "Carottes", type: "legumes", unite: "kg", stockMin: "3" },
+      { nom: "Feuilles de chou", type: "legumes", unite: "kg", stockMin: "2" },
+      { nom: "Betterave fourragère", type: "legumes", unite: "kg", stockMin: "5" },
+      { nom: "Épinards", type: "legumes", unite: "kg", stockMin: "2" },
+      { nom: "Pissenlit", type: "legumes", unite: "kg", stockMin: "1" },
+      { nom: "Navet", type: "legumes", unite: "kg", stockMin: "3" },
+      { nom: "Céleri (feuilles)", type: "legumes", unite: "kg", stockMin: "1" },
+    ],
+  },
+  {
+    label: "💊 Suppléments",
+    items: [
+      { nom: "Complément minéral-vitaminé", type: "supplement", unite: "kg", stockMin: "1" },
+      { nom: "Pierre à lécher (sel minéral)", type: "supplement", unite: "g", stockMin: "500" },
+      { nom: "Probiotiques", type: "supplement", unite: "g", stockMin: "200" },
+      { nom: "Vitamine C", type: "supplement", unite: "g", stockMin: "100" },
+    ],
+  },
+];
+
 export function AddAlimentForm({ onSuccess }: Props) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -79,6 +124,33 @@ export function AddAlimentForm({ onSuccess }: Props) {
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 mt-2">
           {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>}
+
+          {/* Quick-select from catalogue */}
+          <div className="space-y-1.5">
+            <Label htmlFor="catalogue">Choisir depuis le catalogue</Label>
+            <Select
+              id="catalogue"
+              defaultValue=""
+              onChange={(e) => {
+                if (!e.target.value) return;
+                const all = CATALOGUE.flatMap((g) => g.items);
+                const item = all.find((i) => i.nom === e.target.value);
+                if (item) setForm((f) => ({ ...f, nom: item.nom, type: item.type, unite: item.unite, stockMin: item.stockMin }));
+              }}
+            >
+              <option value="">— Sélectionner un aliment type —</option>
+              {CATALOGUE.map((group) => (
+                <optgroup key={group.label} label={group.label}>
+                  {group.items.map((item) => (
+                    <option key={item.nom} value={item.nom}>{item.nom}</option>
+                  ))}
+                </optgroup>
+              ))}
+            </Select>
+            <p className="text-xs text-muted-foreground">Pré-remplit le formulaire. Vous pouvez ensuite ajuster les champs.</p>
+          </div>
+
+          <div className="border-t border-earth-100" />
 
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2 space-y-1.5">

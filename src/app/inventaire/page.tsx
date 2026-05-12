@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Search, Filter, Grid3X3, List, Loader2 } from "lucide-react";
 import { RabbitCard } from "@/components/rabbits/rabbit-card";
 import { AddRabbitForm } from "@/components/forms/add-rabbit-form";
+import { EditRabbitForm } from "@/components/forms/edit-rabbit-form";
 import { cn } from "@/lib/utils";
 
 interface Rabbit {
@@ -205,7 +206,7 @@ export default function InventairePage() {
       ) : viewMode === "grid" ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {filtered.map((rabbit) => (
-            <RabbitCard key={rabbit.id} rabbit={rabbit} />
+            <RabbitCard key={rabbit.id} rabbit={rabbit} onUpdate={fetchRabbits} />
           ))}
         </div>
       ) : (
@@ -234,6 +235,7 @@ export default function InventairePage() {
                 <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden lg:table-cell">
                   Cage
                 </th>
+                <th className="px-4 py-3" />
               </tr>
             </thead>
             <tbody className="divide-y divide-earth-50">
@@ -292,6 +294,9 @@ export default function InventairePage() {
                     <span className="bg-earth-100 text-earth-600 text-xs font-mono px-2 py-0.5 rounded">
                       {rabbit.cageNumero}
                     </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <EditRabbitForm rabbit={rabbit} onSuccess={fetchRabbits} />
                   </td>
                 </tr>
               ))}
