@@ -1,3 +1,5 @@
+"use client";
+
 import {
   Users,
   Heart,
@@ -7,42 +9,92 @@ import {
   TrendingUp,
   Syringe,
   CheckCircle2,
-  Clock,
   ArrowRight,
+  Loader2,
+  RefreshCw,
 } from "lucide-react";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { mockRabbits, mockAccouplements, mockSanteLogs, dashboardStats } from "@/lib/mock-data";
-import { formatDate, formatRelativeDate, addDays } from "@/lib/utils";
+import { formatDate, formatRelativeDate } from "@/lib/utils";
 import Link from "next/link";
+import { useState, useEffect, useCallback } from "react";
+
+interface Rabbit {
+  id: string; name: string; identifiant: string; race: string;
+  sexe: string; statut: string; poids: number | null; cageNumero: string | null;
+  dateNaissance: string | null;
+}
+interface Accouplement {
+  id: string; statut: string; dateMiseBas: string | null;
+  dateAccouplement: string;
+  mere: { id: string; name: string };
+  pere: { id: string; name: string };
+}
+interface SanteLog {
+  id: string; type: string; description: string; prochainRappel: string | null;
+  rabbit: { id: string; name: string };
+}
 
 export default function DashboardPage() {
   const today = new Date();
+  const [rabbits, setRabbits] = useState<Rabbit[]>([]);
+  const [accouplements, setAccouplements] = useState<Accouplement[]>([]);
+  const [santeLogs, setSanteLogs] = useState<SanteLog[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const upcomingBirths = mockAccouplements
-    .filter((a) => a.statut === "en_cours")
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [rRes, aRes, sRes] = await Promise.all([
+        fetch("/api/rabbits"),
+        fetch("/api/accouplements"),
+        fetch("/api/sante"),
+      ]);
+      setRabbits(await rRes.json());
+      setAccouplements(await aRes.json());
+      setSanteLogs(await sRes.json());
+    } catch { /* ignore */ } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const males = rabbits.filter((r) => r.sexe === "male");
+  const femelles = rabbits.filter((r) => r.sexe === "femelle");
+  const lapereaux = rabbits.filter((r) => r.statut === "lapereau" || r.statut === "croissance");
+  const reproducteurs = rabbits.filter((r) => r.statut === "reproducteur");
+
+  const upcomingBirths = accouplements
+    .filter((a) => a.statut === "en_cours" && a.dateMiseBas)
     .map((a) => ({
       ...a,
-      mere: mockRabbits.find((r) => r.id === a.mereId),
-      pere: mockRabbits.find((r) => r.id === a.pereId),
       daysRemaining: Math.ceil(
-        (new Date(a.dateMiseBas).getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+        (new Date(a.dateMiseBas!).getTime() - today.getTime()) / 86400000
       ),
-    }));
+    }))
+    .sort((a, b) => a.daysRemaining - b.daysRemaining);
 
-  const healthAlerts = mockSanteLogs
+  const gestationsEnCours = accouplements.filter((a) => a.statut === "en_cours").length;
+  const sevrageAVenir = accouplements.filter((a) => {
+    if (a.statut !== "mise_bas" || !a.dateMiseBas) return false;
+    const j = Math.floor((today.getTime() - new Date(a.dateMiseBas).getTime()) / 86400000);
+    return j >= 21 && j <= 35;
+  }).length;
+
+  const healthAlerts = santeLogs
     .filter((l) => l.prochainRappel)
     .map((l) => ({
       ...l,
       daysUntil: Math.ceil(
-        (new Date(l.prochainRappel!).getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+        (new Date(l.prochainRappel!).getTime() - today.getTime()) / 86400000
       ),
     }))
     .sort((a, b) => a.daysUntil - b.daysUntil);
 
-  const recentRabbits = mockRabbits.slice(0, 5);
+  const rappelsCeMois = healthAlerts.filter((h) => h.daysUntil <= 30).length;
+  const recentRabbits = [...rabbits].slice(0, 5);
 
   return (
     <div className="p-4 md:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto">
@@ -60,6 +112,10 @@ export default function DashboardPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <button onClick={fetchData} className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
+            <RefreshCw className="h-3.5 w-3.5" />
+            Actualiser
+          </button>
           <span className="inline-flex items-center gap-1.5 bg-forest-100 text-forest-700 text-xs font-semibold px-3 py-1.5 rounded-full">
             <span className="w-1.5 h-1.5 bg-forest-500 rounded-full animate-pulse" />
             Ferme active
@@ -67,28 +123,33 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {loading && (
+        <div className="flex justify-center py-8">
+          <Loader2 className="h-8 w-8 animate-spin text-forest-500" />
+        </div>
+      )}
+
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
         <StatCard
           title="Total lapins"
-          value={dashboardStats.totalRabbits}
+          value={rabbits.length}
           subtitle="Effectif global"
           icon={Users}
           iconBg="bg-forest-100"
           iconColor="text-forest-600"
-          trend={{ value: 14, label: "ce mois", positive: true }}
         />
         <StatCard
           title="Mâles"
-          value={dashboardStats.males}
-          subtitle="Reproducteurs"
+          value={males.length}
+          subtitle="dont reproducteurs"
           icon={Users}
           iconBg="bg-blue-100"
           iconColor="text-blue-600"
         />
         <StatCard
           title="Femelles"
-          value={dashboardStats.femelles}
+          value={femelles.length}
           subtitle="dont reproductrices"
           icon={Heart}
           iconBg="bg-pink-100"
@@ -96,7 +157,7 @@ export default function DashboardPage() {
         />
         <StatCard
           title="Lapereaux"
-          value={dashboardStats.lapereaux}
+          value={lapereaux.length}
           subtitle="En croissance"
           icon={Baby}
           iconBg="bg-amber-100"
@@ -113,7 +174,7 @@ export default function DashboardPage() {
             </div>
             <span className="text-sm font-medium text-muted-foreground">Gestations</span>
           </div>
-          <p className="text-2xl font-bold">{dashboardStats.gestationsEnCours}</p>
+          <p className="text-2xl font-bold">{gestationsEnCours}</p>
           <p className="text-xs text-muted-foreground mt-0.5">En cours</p>
         </div>
         <div className="bg-white rounded-xl border border-earth-100 p-4 shadow-sm">
@@ -123,7 +184,7 @@ export default function DashboardPage() {
             </div>
             <span className="text-sm font-medium text-muted-foreground">Sevrages</span>
           </div>
-          <p className="text-2xl font-bold">{dashboardStats.sevrageAVenir}</p>
+          <p className="text-2xl font-bold">{sevrageAVenir}</p>
           <p className="text-xs text-muted-foreground mt-0.5">À venir (28j)</p>
         </div>
         <div className="bg-white rounded-xl border border-earth-100 p-4 shadow-sm">
@@ -133,7 +194,7 @@ export default function DashboardPage() {
             </div>
             <span className="text-sm font-medium text-muted-foreground">Rappels santé</span>
           </div>
-          <p className="text-2xl font-bold">{dashboardStats.rappelsSante}</p>
+          <p className="text-2xl font-bold">{rappelsCeMois}</p>
           <p className="text-xs text-muted-foreground mt-0.5">Ce mois</p>
         </div>
         <div className="bg-white rounded-xl border border-earth-100 p-4 shadow-sm">
@@ -143,7 +204,7 @@ export default function DashboardPage() {
             </div>
             <span className="text-sm font-medium text-muted-foreground">Reproducteurs</span>
           </div>
-          <p className="text-2xl font-bold">{dashboardStats.reproducteursActifs}</p>
+          <p className="text-2xl font-bold">{reproducteurs.length}</p>
           <p className="text-xs text-muted-foreground mt-0.5">Actifs</p>
         </div>
       </div>
@@ -183,7 +244,7 @@ export default function DashboardPage() {
                       {birth.pere?.name}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      Mise-bas prévue le {formatDate(birth.dateMiseBas)}
+                      Mise-bas prévue le {formatDate(birth.dateMiseBas!)}
                     </p>
                   </div>
                   <div className="flex-shrink-0 text-right">
@@ -255,7 +316,7 @@ export default function DashboardPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold truncate">
-                      {alert.rabbitName}
+                      {alert.rabbit.name}
                     </p>
                     <p className="text-xs text-muted-foreground truncate">
                       {alert.description}
@@ -393,39 +454,46 @@ export default function DashboardPage() {
       </Card>
 
       {/* Reproduction performance */}
-      <Card className="border-earth-100 shadow-sm">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base font-semibold flex items-center gap-2">
-            <TrendingUp className="h-4 w-4 text-forest-600" />
-            Performance de la ferme (mois en cours)
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Taux de survie lapereaux</span>
-                <span className="font-semibold text-forest-700">87.5%</span>
+      {accouplements.length > 0 && (() => {
+        const termines = accouplements.filter((a) => a.statut === "termine" || a.statut === "mise_bas");
+        const tauxGestation = accouplements.length > 0
+          ? Math.round((termines.length / accouplements.length) * 100) : 0;
+        return (
+          <Card className="border-earth-100 shadow-sm">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-semibold flex items-center gap-2">
+                <TrendingUp className="h-4 w-4 text-forest-600" />
+                Statistiques de la ferme
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Total accouplements</span>
+                    <span className="font-semibold text-forest-700">{accouplements.length}</span>
+                  </div>
+                  <Progress value={Math.min(accouplements.length * 10, 100)} className="h-2 bg-earth-100 [&>div]:bg-forest-500" />
+                </div>
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Taux de gestation</span>
+                    <span className="font-semibold text-sage-600">{tauxGestation}%</span>
+                  </div>
+                  <Progress value={tauxGestation} className="h-2 bg-earth-100 [&>div]:bg-sage-500" />
+                </div>
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Reproducteurs actifs</span>
+                    <span className="font-semibold text-amber-600">{reproducteurs.length}</span>
+                  </div>
+                  <Progress value={rabbits.length > 0 ? Math.round((reproducteurs.length / rabbits.length) * 100) : 0} className="h-2 bg-earth-100 [&>div]:bg-amber-500" />
+                </div>
               </div>
-              <Progress value={87.5} className="h-2 bg-earth-100 [&>div]:bg-forest-500" />
-            </div>
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Taux de gestation</span>
-                <span className="font-semibold text-sage-600">75%</span>
-              </div>
-              <Progress value={75} className="h-2 bg-earth-100 [&>div]:bg-sage-500" />
-            </div>
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Conformité sanitaire</span>
-                <span className="font-semibold text-amber-600">92%</span>
-              </div>
-              <Progress value={92} className="h-2 bg-earth-100 [&>div]:bg-amber-500" />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
+        );
+      })()}
     </div>
   );
 }
