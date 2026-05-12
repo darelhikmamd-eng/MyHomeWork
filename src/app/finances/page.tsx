@@ -11,6 +11,7 @@ import {
   BarChart3,
   Calendar,
   Filter,
+  Trash2,
 } from "lucide-react";
 import {
   BarChart,
@@ -65,6 +66,13 @@ export default function FinancesPage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"tous" | "depense" | "recette">("tous");
   const [moisActif, setMoisActif] = useState<string | null>(null);
+  const [confirmDel, setConfirmDel] = useState<string | null>(null);
+
+  async function handleDelete(id: string) {
+    await fetch(`/api/transactions/${id}`, { method: "DELETE" });
+    setConfirmDel(null);
+    fetchData();
+  }
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -391,21 +399,33 @@ export default function FinancesPage() {
                         </span>
                       </div>
                     </div>
-                    <div className="text-right flex-shrink-0">
-                      <p className={cn(
-                        "text-base font-bold",
-                        t.type === "depense" ? "text-red-600" : "text-forest-600"
-                      )}>
-                        {t.type === "depense" ? "-" : "+"}{formatEur(t.montant)}
-                      </p>
-                      <span className={cn(
-                        "text-xs font-medium px-2 py-0.5 rounded-full",
-                        t.type === "depense"
-                          ? "bg-red-100 text-red-600"
-                          : "bg-forest-100 text-forest-600"
-                      )}>
-                        {t.type === "depense" ? "Dépense" : "Recette"}
-                      </span>
+                    <div className="text-right flex-shrink-0 flex items-center gap-2">
+                      <div>
+                        <p className={cn(
+                          "text-base font-bold",
+                          t.type === "depense" ? "text-red-600" : "text-forest-600"
+                        )}>
+                          {t.type === "depense" ? "-" : "+"}{formatEur(t.montant)}
+                        </p>
+                        <span className={cn(
+                          "text-xs font-medium px-2 py-0.5 rounded-full",
+                          t.type === "depense"
+                            ? "bg-red-100 text-red-600"
+                            : "bg-forest-100 text-forest-600"
+                        )}>
+                          {t.type === "depense" ? "Dépense" : "Recette"}
+                        </span>
+                      </div>
+                      {confirmDel === t.id ? (
+                        <div className="flex flex-col gap-1">
+                          <button onClick={() => handleDelete(t.id)} className="text-xs px-2 py-1 bg-red-600 text-white rounded-lg">Oui</button>
+                          <button onClick={() => setConfirmDel(null)} className="text-xs px-2 py-1 border border-earth-200 rounded-lg">Non</button>
+                        </div>
+                      ) : (
+                        <button onClick={() => setConfirmDel(t.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-muted-foreground hover:text-red-600 transition-colors" title="Supprimer">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 );

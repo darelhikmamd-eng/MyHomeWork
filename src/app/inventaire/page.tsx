@@ -21,7 +21,7 @@ interface Rabbit {
   notes: string | null;
 }
 
-const races = ["Toutes", "Néo-Zélandais", "Californien", "Géant Flamand"];
+// races est maintenant calculé dynamiquement depuis les données réelles
 const statuts = ["Tous", "actif", "reproducteur", "vendu", "decede"];
 const sexes = ["Tous", "male", "femelle"];
 
@@ -55,6 +55,8 @@ export default function InventairePage() {
   }, []);
 
   useEffect(() => { fetchRabbits(); }, [fetchRabbits]);
+
+  const races = ["Toutes", ...Array.from(new Set(rabbits.map((r) => r.race))).sort()];
 
   const filtered = rabbits.filter((r) => {
     const matchSearch =

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Syringe, Stethoscope, Eye, AlertTriangle, Calendar, Loader2 } from "lucide-react";
+import { Syringe, Stethoscope, Eye, AlertTriangle, Calendar, Loader2, Trash2 } from "lucide-react";
 import { AddSanteForm } from "@/components/forms/add-sante-form";
 import { formatDate, formatRelativeDate } from "@/lib/utils";
 import { cn } from "@/lib/utils";
@@ -64,6 +64,13 @@ export default function SantePage() {
   const [logs, setLogs] = useState<SanteLog[]>([]);
   const [rabbits, setRabbits] = useState<RabbitRef[]>([]);
   const [loadingData, setLoadingData] = useState(true);
+  const [confirmDel, setConfirmDel] = useState<string | null>(null);
+
+  async function handleDelete(id: string) {
+    await fetch(`/api/sante/${id}`, { method: "DELETE" });
+    setConfirmDel(null);
+    fetchData();
+  }
 
   const fetchData = useCallback(async () => {
     setLoadingData(true);
@@ -233,8 +240,18 @@ export default function SantePage() {
                             {log.rabbit.identifiant} — {log.rabbit.race}
                           </p>
                         </div>
-                        <div className="text-right flex-shrink-0">
+                        <div className="text-right flex-shrink-0 flex items-center gap-2">
                           <p className="text-xs font-medium text-muted-foreground">{formatDate(log.date)}</p>
+                          {confirmDel === log.id ? (
+                            <>
+                              <button onClick={() => handleDelete(log.id)} className="text-xs px-2 py-1 bg-red-600 text-white rounded-lg">Oui</button>
+                              <button onClick={() => setConfirmDel(null)} className="text-xs px-2 py-1 border border-earth-200 rounded-lg">Non</button>
+                            </>
+                          ) : (
+                            <button onClick={() => setConfirmDel(log.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-muted-foreground hover:text-red-600 transition-colors" title="Supprimer">
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          )}
                         </div>
                       </div>
                       <p className="text-sm text-foreground mt-2">{log.description}</p>

@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Background circle -->
+  <circle cx="50" cy="50" r="50" fill="#2d5a27"/>
+  <!-- Rabbit body -->
+  <ellipse cx="50" cy="62" rx="18" ry="20" fill="white"/>
+  <!-- Rabbit head -->
+  <circle cx="50" cy="44" r="14" fill="white"/>
+  <!-- Left ear -->
+  <ellipse cx="40" cy="22" rx="5" ry="14" fill="white"/>
+  <ellipse cx="40" cy="22" rx="2.5" ry="11" fill="#f9a8d4"/>
+  <!-- Right ear -->
+  <ellipse cx="60" cy="22" rx="5" ry="14" fill="white"/>
+  <ellipse cx="60" cy="22" rx="2.5" ry="11" fill="#f9a8d4"/>
+  <!-- Eyes -->
+  <circle cx="44" cy="42" r="2.5" fill="#1a1a1a"/>
+  <circle cx="56" cy="42" r="2.5" fill="#1a1a1a"/>
+  <!-- Nose -->
+  <ellipse cx="50" cy="48" rx="2" ry="1.5" fill="#f9a8d4"/>
+  <!-- Tail -->
+  <circle cx="50" cy="81" r="5" fill="white"/>
+</svg>
