@@ -4,13 +4,14 @@ import { prisma } from "@/lib/prisma";
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     const body = await req.json();
-    const { statut, nombreNes, nombreVivants, dateMiseBas, notes } = body;
+    const { statut, nombreNes, nombreVivants, dateMiseBas, dateSevrage, notes } = body;
 
     const data: Record<string, unknown> = {};
     if (statut !== undefined) data.statut = statut;
     if (nombreNes !== undefined) data.nombreNes = nombreNes ? parseInt(nombreNes) : null;
     if (nombreVivants !== undefined) data.nombreVivants = nombreVivants ? parseInt(nombreVivants) : null;
     if (dateMiseBas !== undefined) data.dateMiseBas = dateMiseBas ? new Date(dateMiseBas) : null;
+    if (dateSevrage !== undefined) data.dateSevrage = dateSevrage ? new Date(dateSevrage) : null;
     if (notes !== undefined) data.notes = notes || null;
 
     const acc = await prisma.accouplement.update({ where: { id: params.id }, data });

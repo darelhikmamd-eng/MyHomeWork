@@ -32,7 +32,8 @@ interface Accouplement {
   pereId: string;
   mereId: string;
   dateMiseBas: string | null;
-  statut: "en_cours" | "mise_bas" | "echec";
+  dateSevrage: string | null;
+  statut: "en_cours" | "mise_bas" | "sevrage" | "echec";
   nombreNes: number | null;
   nombreVivants: number | null;
   notes: string | null;
@@ -50,6 +51,7 @@ const steps = [
 const statutConfig = {
   en_cours: { label: "En cours", color: "bg-amber-100 text-amber-700 border-amber-200" },
   mise_bas: { label: "Mise-bas effectuée", color: "bg-forest-100 text-forest-700 border-forest-200" },
+  sevrage: { label: "Sevré", color: "bg-sage-100 text-sage-700 border-sage-200" },
   echec: { label: "Échec", color: "bg-red-100 text-red-700 border-red-200" },
 };
 
@@ -93,6 +95,24 @@ export default function CycleDeViePage() {
     });
     setMbModal(null);
     setMbLoading(false);
+    fetchData();
+  }
+
+  async function handleSevrage(id: string) {
+    await fetch(`/api/accouplements/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ statut: "sevrage", dateSevrage: new Date().toISOString() }),
+    });
+    fetchData();
+  }
+
+  async function handleAnnulerSevrage(id: string) {
+    await fetch(`/api/accouplements/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ statut: "mise_bas", dateSevrage: null }),
+    });
     fetchData();
   }
 
@@ -419,54 +439,97 @@ export default function CycleDeViePage() {
 
       {/* VUE SEVRAGE */}
       {activeStep === "sevrage" && (
-        <div className="space-y-4">
-          <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
-            <Milk className="h-4 w-4 text-sage-600" />
-            Sevrages à effectuer ({enrichedAccouplements.filter(a => a.statut === "mise_bas" && a.dateMiseBas && Math.floor((Date.now() - new Date(a.dateMiseBas).getTime()) / 86400000) >= 28).length})
-          </h2>
-          {enrichedAccouplements.filter(a => a.statut === "mise_bas").length === 0 ? (
-            <div className="text-center py-12 bg-white rounded-xl border border-earth-100">
-              <Milk className="h-10 w-10 text-earth-300 mx-auto mb-3" />
-              <p className="text-muted-foreground">Aucun sevrage à venir pour l&apos;instant</p>
-            </div>
-          ) : (
-            enrichedAccouplements.filter(a => a.statut === "mise_bas").map(acc => {
-              const jours = acc.dateMiseBas ? Math.max(0, Math.floor((Date.now() - new Date(acc.dateMiseBas).getTime()) / 86400000)) : 0;
-              const urgent = jours >= 28;
-              return (
-                <div key={acc.id} className={`rounded-xl border shadow-sm p-5 space-y-3 ${urgent ? "bg-amber-50 border-amber-200" : "bg-white border-earth-100"}`}>
+        <div className="space-y-6">
+
+          {/* --- À sevrer --- */}
+          <div className="space-y-3">
+            <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
+              <Milk className="h-4 w-4 text-sage-600" />
+              Sevrages à effectuer ({enrichedAccouplements.filter(a => a.statut === "mise_bas").length})
+            </h2>
+            {enrichedAccouplements.filter(a => a.statut === "mise_bas").length === 0 ? (
+              <div className="text-center py-10 bg-white rounded-xl border border-earth-100">
+                <Milk className="h-10 w-10 text-earth-300 mx-auto mb-3" />
+                <p className="text-muted-foreground">Aucun sevrage à effectuer</p>
+              </div>
+            ) : (
+              enrichedAccouplements.filter(a => a.statut === "mise_bas").map(acc => {
+                const jours = acc.dateMiseBas ? Math.max(0, Math.floor((Date.now() - new Date(acc.dateMiseBas).getTime()) / 86400000)) : 0;
+                const urgent = jours >= 28;
+                return (
+                  <div key={acc.id} className={`rounded-xl border shadow-sm p-5 space-y-3 ${urgent ? "bg-amber-50 border-amber-200" : "bg-white border-earth-100"}`}>
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <p className="font-semibold">🐇 {acc.mere?.name} <span className="text-xs font-mono text-muted-foreground">({acc.mere?.identifiant})</span></p>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-xs font-medium px-2.5 py-1 rounded-full border ${urgent ? "bg-amber-100 text-amber-700 border-amber-300" : "bg-sage-100 text-sage-700 border-sage-200"}`}>
+                          {urgent ? "⚠️ Sevrage urgent" : `J${jours}/28`}
+                        </span>
+                        <button
+                          onClick={() => handleSevrage(acc.id)}
+                          className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 bg-sage-600 hover:bg-sage-700 text-white rounded-lg transition-colors"
+                        >
+                          <CheckCircle2 className="h-3.5 w-3.5" /> Marquer sevré
+                        </button>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-3 text-sm">
+                      <div className="bg-white rounded-lg p-3 border border-earth-100">
+                        <p className="text-xs text-muted-foreground mb-0.5">Date mise-bas</p>
+                        <p className="font-semibold">{acc.dateMiseBas ? formatDate(acc.dateMiseBas) : "—"}</p>
+                      </div>
+                      <div className="bg-white rounded-lg p-3 border border-earth-100">
+                        <p className="text-xs text-muted-foreground mb-0.5">Lapereaux vivants</p>
+                        <p className="font-semibold">{acc.nombreVivants ?? "—"}</p>
+                      </div>
+                      <div className="bg-white rounded-lg p-3 border border-earth-100">
+                        <p className="text-xs text-muted-foreground mb-0.5">Date sevrage prévue</p>
+                        <p className="font-semibold">{acc.dateMiseBas ? formatDate(new Date(new Date(acc.dateMiseBas).getTime() + 28 * 86400000).toISOString()) : "—"}</p>
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>Progression sevrage</span>
+                        <span className="font-semibold">{Math.min(100, Math.round((jours / 28) * 100))}%</span>
+                      </div>
+                      <div className="h-2 bg-earth-100 rounded-full overflow-hidden">
+                        <div className={`h-full rounded-full transition-all ${urgent ? "bg-amber-500" : "bg-sage-400"}`} style={{ width: `${Math.min(100, Math.round((jours / 28) * 100))}%` }} />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* --- Sevrages effectués --- */}
+          {enrichedAccouplements.filter(a => a.statut === "sevrage").length > 0 && (
+            <div className="space-y-3">
+              <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-forest-600" />
+                Sevrages effectués ({enrichedAccouplements.filter(a => a.statut === "sevrage").length})
+              </h2>
+              {enrichedAccouplements.filter(a => a.statut === "sevrage").map(acc => (
+                <div key={acc.id} className="bg-sage-50 border border-sage-200 rounded-xl p-4 shadow-sm">
                   <div className="flex items-center justify-between flex-wrap gap-2">
-                    <p className="font-semibold">🐇 {acc.mere?.name} <span className="text-xs font-mono text-muted-foreground">({acc.mere?.identifiant})</span></p>
-                    <span className={`text-xs font-medium px-2.5 py-1 rounded-full border ${urgent ? "bg-amber-100 text-amber-700 border-amber-300" : "bg-sage-100 text-sage-700 border-sage-200"}`}>
-                      {urgent ? "⚠️ Sevrage urgent" : `J${jours}/28`}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-3 gap-3 text-sm">
-                    <div className="bg-white rounded-lg p-3 border border-earth-100">
-                      <p className="text-xs text-muted-foreground mb-0.5">Date mise-bas</p>
-                      <p className="font-semibold">{acc.dateMiseBas ? formatDate(acc.dateMiseBas) : "—"}</p>
+                    <div>
+                      <p className="font-semibold text-sm">🐇 {acc.mere?.name} × {acc.pere?.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Mise-bas : {acc.dateMiseBas ? formatDate(acc.dateMiseBas) : "—"} · Sevrage : {acc.dateSevrage ? formatDate(acc.dateSevrage) : "—"}
+                      </p>
                     </div>
-                    <div className="bg-white rounded-lg p-3 border border-earth-100">
-                      <p className="text-xs text-muted-foreground mb-0.5">Lapereaux vivants</p>
-                      <p className="font-semibold">{acc.nombreVivants ?? "—"}</p>
-                    </div>
-                    <div className="bg-white rounded-lg p-3 border border-earth-100">
-                      <p className="text-xs text-muted-foreground mb-0.5">Date sevrage prévue</p>
-                      <p className="font-semibold">{acc.dateMiseBas ? formatDate(new Date(new Date(acc.dateMiseBas).getTime() + 28 * 86400000).toISOString()) : "—"}</p>
-                    </div>
-                  </div>
-                  <div className="space-y-1">
-                    <div className="flex justify-between text-xs text-muted-foreground">
-                      <span>Progression sevrage</span>
-                      <span className="font-semibold">{Math.min(100, Math.round((jours / 28) * 100))}%</span>
-                    </div>
-                    <div className="h-2 bg-earth-100 rounded-full overflow-hidden">
-                      <div className={`h-full rounded-full transition-all ${urgent ? "bg-amber-500" : "bg-sage-400"}`} style={{ width: `${Math.min(100, Math.round((jours / 28) * 100))}%` }} />
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-sage-100 text-sage-700 border border-sage-200">✅ Sevré</span>
+                      <button
+                        onClick={() => handleAnnulerSevrage(acc.id)}
+                        className="text-xs text-muted-foreground hover:text-red-600 border border-earth-200 rounded-lg px-2.5 py-1 transition-colors"
+                      >
+                        Annuler
+                      </button>
                     </div>
                   </div>
                 </div>
-              );
-            })
+              ))}
+            </div>
           )}
         </div>
       )}
