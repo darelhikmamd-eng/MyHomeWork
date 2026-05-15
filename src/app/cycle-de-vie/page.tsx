@@ -3,14 +3,12 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   Heart,
-  Baby,
   Milk,
   ChevronRight,
   Calendar,
   CheckCircle2,
   Clock,
   AlertCircle,
-  Loader2,
   Trash2,
   X,
 } from "lucide-react";
@@ -43,7 +41,7 @@ interface Accouplement {
 const steps = [
   { id: "accouplement", label: "Accouplement", icon: Heart, color: "text-pink-600", bg: "bg-pink-100" },
   { id: "gestation", label: "Gestation", icon: Clock, color: "text-amber-600", bg: "bg-amber-100" },
-  { id: "mise_bas", label: "Mise-bas", icon: Baby, color: "text-forest-600", bg: "bg-forest-100" },
+  { id: "mise_bas", label: "Mise-bas", icon: Heart, color: "text-forest-600", bg: "bg-forest-100" },
   { id: "sevrage", label: "Sevrage", icon: Milk, color: "text-sage-600", bg: "bg-sage-100" },
 ];
 
@@ -58,22 +56,7 @@ export default function CycleDeViePage() {
   const [accouplements, setAccouplements] = useState<Accouplement[]>([]);
   const [rabbits, setRabbits] = useState<RabbitRef[]>([]);
   const [loadingData, setLoadingData] = useState(true);
-  const [miseBas, setMiseBas] = useState<{ id: string; nombreNes: string; nombreVivants: string } | null>(null);
-  const [mbLoading, setMbLoading] = useState(false);
   const [confirmDel, setConfirmDel] = useState<string | null>(null);
-
-  async function handleMiseBas() {
-    if (!miseBas) return;
-    setMbLoading(true);
-    await fetch(`/api/accouplements/${miseBas.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ statut: "mise_bas", nombreNes: miseBas.nombreNes, nombreVivants: miseBas.nombreVivants, dateMiseBas: new Date().toISOString() }),
-    });
-    setMiseBas(null);
-    setMbLoading(false);
-    fetchData();
-  }
 
   async function handleEchec(id: string) {
     await fetch(`/api/accouplements/${id}`, {
@@ -97,7 +80,20 @@ export default function CycleDeViePage() {
         fetch("/api/accouplements"),
         fetch("/api/rabbits"),
       ]);
-      setAccouplements(await accRes.json());
+      const accs: Accouplement[] = await accRes.json();
+      // Auto-déclencher mise-bas quand la date prévue est atteinte
+      const now = new Date();
+      for (const acc of accs) {
+        if (acc.statut === "en_cours" && acc.dateMiseBas && new Date(acc.dateMiseBas) <= now) {
+          await fetch(`/api/accouplements/${acc.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ statut: "mise_bas" }),
+          });
+          acc.statut = "mise_bas";
+        }
+      }
+      setAccouplements(accs);
       setRabbits(await rabRes.json());
     } catch {
       setAccouplements([]);
@@ -220,13 +216,6 @@ export default function CycleDeViePage() {
               {acc.statut === "en_cours" && (
                 <div className="px-4 py-2 bg-cream-50 border-b border-earth-50 flex flex-wrap gap-2">
                   <button
-                    onClick={() => setMiseBas({ id: acc.id, nombreNes: "", nombreVivants: "" })}
-                    className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 bg-forest-600 hover:bg-forest-700 text-white rounded-lg transition-colors"
-                  >
-                    <Baby className="h-3.5 w-3.5" />
-                    Enregistrer la mise-bas
-                  </button>
-                  <button
                     onClick={() => handleEchec(acc.id)}
                     className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-lg transition-colors"
                   >
@@ -299,7 +288,7 @@ export default function CycleDeViePage() {
                 <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide">
                   {(() => {
                     const joursSevrage = acc.statut === "mise_bas" && acc.dateMiseBas
-                      ? Math.floor((Date.now() - new Date(acc.dateMiseBas).getTime()) / 86400000)
+                      ? Math.max(0, Math.floor((Date.now() - new Date(acc.dateMiseBas).getTime()) / 86400000))
                       : null;
                     const sevrageAtteint = joursSevrage !== null && joursSevrage >= 28;
                     const sevrageLabel = joursSevrage !== null
@@ -359,47 +348,6 @@ export default function CycleDeViePage() {
         )}
       </div>
 
-      {/* Mise-bas modal */}
-      {miseBas && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 space-y-4">
-            <div className="flex items-center gap-2">
-              <Baby className="h-5 w-5 text-forest-600" />
-              <h3 className="text-base font-bold">Enregistrer la mise-bas</h3>
-            </div>
-            <div className="space-y-3">
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium">Nombre de lapereaux nés</label>
-                <input
-                  type="number" min="0"
-                  value={miseBas.nombreNes}
-                  onChange={(e) => setMiseBas((m) => m ? { ...m, nombreNes: e.target.value } : null)}
-                  className="w-full h-10 px-3 rounded-lg border border-earth-200 bg-cream-50 text-sm focus:outline-none focus:ring-2 focus:ring-forest-400"
-                  placeholder="Ex: 8"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium">Dont vivants</label>
-                <input
-                  type="number" min="0"
-                  value={miseBas.nombreVivants}
-                  onChange={(e) => setMiseBas((m) => m ? { ...m, nombreVivants: e.target.value } : null)}
-                  className="w-full h-10 px-3 rounded-lg border border-earth-200 bg-cream-50 text-sm focus:outline-none focus:ring-2 focus:ring-forest-400"
-                  placeholder="Ex: 7"
-                />
-              </div>
-            </div>
-            <div className="flex gap-2 pt-1">
-              <button onClick={() => setMiseBas(null)} className="flex-1 px-4 py-2 text-sm border border-earth-200 rounded-lg hover:bg-earth-50 transition-colors">
-                Annuler
-              </button>
-              <button onClick={handleMiseBas} disabled={mbLoading} className="flex-1 px-4 py-2 text-sm font-medium bg-forest-600 hover:bg-forest-700 text-white rounded-lg transition-colors disabled:opacity-50">
-                {mbLoading ? "..." : "Enregistrer"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
