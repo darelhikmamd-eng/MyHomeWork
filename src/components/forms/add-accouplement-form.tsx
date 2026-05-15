@@ -108,7 +108,7 @@ export function AddAccouplementForm({ rabbits, onSuccess }: AddAccouplementFormP
               ))}
             </Select>
             {males.length === 0 && (
-              <p className="text-xs text-amber-600">Aucun mâle enregistré. Ajoutez d'abord un lapin mâle.</p>
+              <p className="text-xs text-amber-600">Aucun mâle enregistré. Ajoutez d&apos;abord un lapin mâle.</p>
             )}
           </div>
 
@@ -124,13 +124,13 @@ export function AddAccouplementForm({ rabbits, onSuccess }: AddAccouplementFormP
               ))}
             </Select>
             {femelles.length === 0 && (
-              <p className="text-xs text-amber-600">Aucune femelle enregistrée. Ajoutez d'abord une lapine.</p>
+              <p className="text-xs text-amber-600">Aucune femelle enregistrée. Ajoutez d&apos;abord une lapine.</p>
             )}
           </div>
 
           {/* Date accouplement */}
           <div className="space-y-1.5">
-            <Label htmlFor="dateAccouplement">Date d'accouplement *</Label>
+            <Label htmlFor="dateAccouplement">Date d&apos;accouplement *</Label>
             <Input id="dateAccouplement" type="date" value={form.dateAccouplement} onChange={field("dateAccouplement")} required />
           </div>
 
