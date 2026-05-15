@@ -119,19 +119,9 @@ export default function CycleDeViePage() {
         fetch("/api/rabbits"),
       ]);
       const accs: Accouplement[] = await accRes.json();
-      const now = new Date();
+      // Corriger les couples passés en mise_bas automatiquement sans données saisies
       for (const acc of accs) {
-        // Auto-déclencher mise-bas quand la date prévue est atteinte
-        if (acc.statut === "en_cours" && acc.dateMiseBas && new Date(acc.dateMiseBas) <= now) {
-          await fetch(`/api/accouplements/${acc.id}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ statut: "mise_bas" }),
-          });
-          acc.statut = "mise_bas";
-        }
-        // Corriger si mise_bas enregistrée par erreur alors que la date est encore dans le futur
-        if (acc.statut === "mise_bas" && acc.dateMiseBas && new Date(acc.dateMiseBas) > now) {
+        if (acc.statut === "mise_bas" && acc.nombreNes === null) {
           await fetch(`/api/accouplements/${acc.id}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
@@ -666,9 +656,21 @@ export default function CycleDeViePage() {
                 className="w-full h-10 px-3 rounded-lg border border-earth-200 bg-cream-50 text-sm focus:outline-none focus:ring-2 focus:ring-forest-400"
               >
                 <option value="">— Choisir le couple —</option>
-                {enrichedAccouplements.filter(a => a.statut === "en_cours").map(a => (
-                  <option key={a.id} value={a.id}>{nomCouple(a)}</option>
-                ))}
+                {enrichedAccouplements
+                  .filter(a => a.statut === "en_cours")
+                  .sort((a, b) => {
+                    const aReady = a.dateMiseBas && new Date(a.dateMiseBas) <= new Date() ? 0 : 1;
+                    const bReady = b.dateMiseBas && new Date(b.dateMiseBas) <= new Date() ? 0 : 1;
+                    return aReady - bReady;
+                  })
+                  .map(a => {
+                    const isReady = a.dateMiseBas && new Date(a.dateMiseBas) <= new Date();
+                    return (
+                      <option key={a.id} value={a.id}>
+                        {isReady ? "✓ " : "⏳ "}{nomCouple(a)}{isReady ? " — Prête" : " — En attente"}
+                      </option>
+                    );
+                  })}
               </select>
               {mbModal.accId && (() => {
                 const a = enrichedAccouplements.find(x => x.id === mbModal.accId);
