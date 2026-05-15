@@ -495,7 +495,7 @@ export default function DashboardPage() {
 
       {/* Reproduction performance */}
       {accouplements.length > 0 && (() => {
-        const termines = accouplements.filter((a) => a.statut === "termine" || a.statut === "mise_bas");
+        const termines = accouplements.filter((a) => a.statut === "mise_bas" || a.statut === "sevrage");
         const tauxGestation = accouplements.length > 0
           ? Math.round((termines.length / accouplements.length) * 100) : 0;
         return (
