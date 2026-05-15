@@ -28,6 +28,7 @@ interface Rabbit {
 interface Accouplement {
   id: string; statut: string; dateMiseBas: string | null;
   dateAccouplement: string;
+  nombreNes: number | null;
   nombreVivants: number | null;
   mere: { id: string; name: string };
   pere: { id: string; name: string };
@@ -68,9 +69,11 @@ export default function DashboardPage() {
   const reproducteurs = rabbits.filter((r) => r.statut === "reproducteur");
 
   // Lapereaux issus des mise-bas (non encore enregistrés comme lapins individuels)
-  const lapreauxMiseBas = accouplements
-    .filter((a) => a.statut === "mise_bas" || a.statut === "sevrage")
-    .reduce((sum, a) => sum + (a.nombreVivants ?? 0), 0);
+  const portees = accouplements.filter((a) => a.statut === "mise_bas" || a.statut === "sevrage");
+  const lapreauxMiseBas = portees.reduce((sum, a) => sum + (a.nombreVivants ?? 0), 0);
+  const totalNes = portees.reduce((sum, a) => sum + (a.nombreNes ?? 0), 0);
+  const totalMorts = totalNes - lapreauxMiseBas;
+  const tauxMortalite = totalNes > 0 ? Math.round((totalMorts / totalNes) * 100) : 0;
   const totalLapereaux = lapereaux.length + lapreauxMiseBas;
   const totalAnimaux = rabbits.length + lapreauxMiseBas;
 
@@ -216,6 +219,35 @@ export default function DashboardPage() {
           <p className="text-xs text-muted-foreground mt-0.5">Actifs</p>
         </div>
       </div>
+
+      {/* Mortalité lapereaux */}
+      {totalNes > 0 && (
+        <div className={`rounded-xl border p-4 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+          tauxMortalite >= 20 ? "bg-red-50 border-red-200" : tauxMortalite >= 10 ? "bg-amber-50 border-amber-200" : "bg-white border-earth-100"
+        }`}>
+          <div className="flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
+              tauxMortalite >= 20 ? "bg-red-100" : tauxMortalite >= 10 ? "bg-amber-100" : "bg-earth-100"
+            }`}>
+              <AlertTriangle className={`h-5 w-5 ${
+                tauxMortalite >= 20 ? "text-red-600" : tauxMortalite >= 10 ? "text-amber-600" : "text-earth-500"
+              }`} />
+            </div>
+            <div>
+              <p className="text-sm font-semibold">Mortalité lapereaux (portées)</p>
+              <p className="text-xs text-muted-foreground">{totalNes} nés · {lapreauxMiseBas} vivants · {totalMorts} morts</p>
+            </div>
+          </div>
+          <div className="text-right">
+            <p className={`text-2xl font-bold ${
+              tauxMortalite >= 20 ? "text-red-600" : tauxMortalite >= 10 ? "text-amber-600" : "text-forest-700"
+            }`}>{tauxMortalite}%</p>
+            <p className="text-xs text-muted-foreground">
+              {tauxMortalite >= 20 ? "⚠️ Taux élevé" : tauxMortalite >= 10 ? "Attention" : "✅ Normal"}
+            </p>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
         {/* Upcoming births */}
