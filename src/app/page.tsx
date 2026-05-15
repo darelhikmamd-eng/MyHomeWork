@@ -28,6 +28,7 @@ interface Rabbit {
 interface Accouplement {
   id: string; statut: string; dateMiseBas: string | null;
   dateAccouplement: string;
+  nombreVivants: number | null;
   mere: { id: string; name: string };
   pere: { id: string; name: string };
 }
@@ -66,6 +67,13 @@ export default function DashboardPage() {
   const lapereaux = rabbits.filter((r) => r.statut === "lapereau" || r.statut === "croissance");
   const reproducteurs = rabbits.filter((r) => r.statut === "reproducteur");
 
+  // Lapereaux issus des mise-bas (non encore enregistrés comme lapins individuels)
+  const lapreauxMiseBas = accouplements
+    .filter((a) => a.statut === "mise_bas" || a.statut === "sevrage")
+    .reduce((sum, a) => sum + (a.nombreVivants ?? 0), 0);
+  const totalLapereaux = lapereaux.length + lapreauxMiseBas;
+  const totalAnimaux = rabbits.length + lapreauxMiseBas;
+
   const upcomingBirths = accouplements
     .filter((a) => a.statut === "en_cours" && a.dateMiseBas)
     .map((a) => ({
@@ -80,7 +88,7 @@ export default function DashboardPage() {
   const sevrageAVenir = accouplements.filter((a) => {
     if (a.statut !== "mise_bas" || !a.dateMiseBas) return false;
     const j = Math.floor((today.getTime() - new Date(a.dateMiseBas).getTime()) / 86400000);
-    return j >= 21 && j <= 35;
+    return j >= 28;
   }).length;
 
   const healthAlerts = santeLogs
@@ -133,7 +141,7 @@ export default function DashboardPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
         <StatCard
           title="Total lapins"
-          value={rabbits.length}
+          value={totalAnimaux}
           subtitle="Effectif global"
           icon={Users}
           iconBg="bg-forest-100"
@@ -157,8 +165,8 @@ export default function DashboardPage() {
         />
         <StatCard
           title="Lapereaux"
-          value={lapereaux.length}
-          subtitle="En croissance"
+          value={totalLapereaux}
+          subtitle={lapreauxMiseBas > 0 ? `dont ${lapreauxMiseBas} nés en portée` : "En croissance"}
           icon={Baby}
           iconBg="bg-amber-100"
           iconColor="text-amber-600"
