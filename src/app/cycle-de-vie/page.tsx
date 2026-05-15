@@ -151,6 +151,20 @@ export default function CycleDeViePage() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  function getPrevision(acc: Accouplement): { prevNes: number | null; prevVivants: number | null; count: number; source: string } {
+    const done = accouplements.filter(a => a.id !== acc.id && a.statut === "mise_bas" && a.nombreNes !== null);
+    const sameCouple = done.filter(a => a.mereId === acc.mereId && a.pereId === acc.pereId);
+    const sameMere   = done.filter(a => a.mereId === acc.mereId);
+    const pool = sameCouple.length > 0 ? { list: sameCouple, source: `ce couple (${sameCouple.length} mise-bas)` }
+               : sameMere.length   > 0 ? { list: sameMere,   source: `cette femelle (${sameMere.length} mise-bas)` }
+               : done.length       > 0 ? { list: done,       source: `l\u2019élevage (${done.length} mise-bas)` }
+               : null;
+    if (!pool) return { prevNes: null, prevVivants: null, count: 0, source: "" };
+    const avg = (arr: Accouplement[], field: "nombreNes" | "nombreVivants") =>
+      Math.round(arr.reduce((s, a) => s + (a[field] ?? 0), 0) / arr.length);
+    return { prevNes: avg(pool.list, "nombreNes"), prevVivants: avg(pool.list, "nombreVivants"), count: pool.list.length, source: pool.source };
+  }
+
   function nomCouple(a: Accouplement): string {
     const mb = a.dateMiseBas ? new Date(a.dateMiseBas) : null;
     const datePart = mb
@@ -327,6 +341,8 @@ export default function CycleDeViePage() {
             enrichedAccouplements.filter(a => a.statut === "mise_bas").map(acc => {
               const joursSevrage = acc.dateMiseBas ? Math.max(0, Math.floor((Date.now() - new Date(acc.dateMiseBas).getTime()) / 86400000)) : 0;
               const morts = (acc.nombreNes ?? 0) - (acc.nombreVivants ?? 0);
+              const prev = getPrevision(acc);
+              const diffNes = prev.prevNes !== null && acc.nombreNes !== null ? acc.nombreNes - prev.prevNes : null;
               return (
                 <div key={acc.id} className="bg-white rounded-xl border border-earth-100 shadow-sm p-5 space-y-3">
                   <div className="flex items-center justify-between flex-wrap gap-2">
@@ -375,6 +391,22 @@ export default function CycleDeViePage() {
                       </p>
                     </div>
                   </div>
+                  {/* Prévision vs Réel */}
+                  {prev.prevNes !== null ? (
+                    <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 text-xs text-blue-800">
+                      <span>📊</span>
+                      <span>
+                        Prévision ({prev.source}) : <strong>{prev.prevNes} nés</strong> · Réel : <strong>{acc.nombreNes ?? "—"} nés</strong>
+                        {diffNes !== null && (
+                          <span className={`ml-1 font-bold ${diffNes > 0 ? "text-forest-700" : diffNes < 0 ? "text-red-600" : "text-muted-foreground"}`}>
+                            {diffNes > 0 ? `(+${diffNes} au-dessus)` : diffNes < 0 ? `(${diffNes} en dessous)` : "(= conforme)"}
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="text-xs text-muted-foreground italic px-1">Aucune donnée historique pour la prévision.</div>
+                  )}
                 </div>
               );
             })
@@ -638,14 +670,29 @@ export default function CycleDeViePage() {
                   <option key={a.id} value={a.id}>{nomCouple(a)}</option>
                 ))}
               </select>
-              {mbModal.accId && (
-                <p className="text-xs text-muted-foreground">
-                  {(() => {
-                    const a = enrichedAccouplements.find(x => x.id === mbModal.accId);
-                    return a ? `Mère : ${a.mere?.name} · Père : ${a.pere?.name} · MB prévue : ${a.dateMiseBas ? formatDate(a.dateMiseBas) : "—"}` : "";
-                  })()}
-                </p>
-              )}
+              {mbModal.accId && (() => {
+                const a = enrichedAccouplements.find(x => x.id === mbModal.accId);
+                if (!a) return null;
+                const prev = getPrevision(a);
+                return (
+                  <div className="space-y-1.5">
+                    <p className="text-xs text-muted-foreground">
+                      Mère : {a.mere?.name} · Père : {a.pere?.name} · MB prévue : {a.dateMiseBas ? formatDate(a.dateMiseBas) : "—"}
+                    </p>
+                    {prev.prevNes !== null ? (
+                      <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 text-xs text-blue-800">
+                        <span>📊</span>
+                        <span>Prévision basée sur <strong>{prev.source}</strong> : environ <strong>{prev.prevNes} nés</strong> dont <strong>{prev.prevVivants} vivants</strong></span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 bg-earth-50 border border-earth-200 rounded-lg px-3 py-2 text-xs text-muted-foreground">
+                        <span>📊</span>
+                        <span>Aucune donnée historique disponible — première mise-bas de ce couple</span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Vérification date prévue */}
