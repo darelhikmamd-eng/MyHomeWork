@@ -59,6 +59,21 @@ export default function CycleDeViePage() {
   const [rabbits, setRabbits] = useState<RabbitRef[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [confirmDel, setConfirmDel] = useState<string | null>(null);
+  const [confirmDelMb, setConfirmDelMb] = useState<string | null>(null);
+
+  async function handleSupprimerMiseBas(id: string) {
+    const acc = accouplements.find(a => a.id === id);
+    const dateMiseBasPrevue = acc
+      ? new Date(new Date(acc.dateAccouplement).getTime() + 31 * 24 * 60 * 60 * 1000).toISOString()
+      : null;
+    await fetch(`/api/accouplements/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ statut: "en_cours", nombreNes: null, nombreVivants: null, dateMiseBas: dateMiseBasPrevue }),
+    });
+    setConfirmDelMb(null);
+    fetchData();
+  }
   const [mbModal, setMbModal] = useState<{ accId: string; nombreNes: string; nombreVivants: string } | null>(null);
   const [mbLoading, setMbLoading] = useState(false);
   const [mbError, setMbError] = useState("");
@@ -319,7 +334,22 @@ export default function CycleDeViePage() {
                       <p className="font-semibold text-sm font-mono text-forest-700">{nomCouple(acc)}</p>
                       <p className="text-xs text-muted-foreground">🐇 {acc.mere?.name} × {acc.pere?.name}</p>
                     </div>
-                    <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-forest-100 text-forest-700 border border-forest-200">Mise-bas effectuée</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-forest-100 text-forest-700 border border-forest-200">Mise-bas effectuée</span>
+                      {confirmDelMb === acc.id ? (
+                        <>
+                          <button onClick={() => handleSupprimerMiseBas(acc.id)} className="text-xs font-medium px-2.5 py-1 bg-red-600 text-white rounded-lg">Confirmer</button>
+                          <button onClick={() => setConfirmDelMb(null)} className="text-xs font-medium px-2.5 py-1 border border-earth-200 rounded-lg">Annuler</button>
+                        </>
+                      ) : (
+                        <button
+                          onClick={() => setConfirmDelMb(acc.id)}
+                          className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 text-muted-foreground hover:text-red-600 border border-earth-200 rounded-lg transition-colors"
+                        >
+                          <Trash2 className="h-3 w-3" /> Supprimer
+                        </button>
+                      )}
+                    </div>
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-sm">
                     <div className="bg-forest-50 rounded-lg p-3">
