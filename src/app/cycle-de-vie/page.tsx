@@ -11,6 +11,8 @@ import {
   AlertCircle,
   Trash2,
   X,
+  Plus,
+  Baby,
 } from "lucide-react";
 import { AddAccouplementForm } from "@/components/forms/add-accouplement-form";
 import { formatDate } from "@/lib/utils";
@@ -57,6 +59,27 @@ export default function CycleDeViePage() {
   const [rabbits, setRabbits] = useState<RabbitRef[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [confirmDel, setConfirmDel] = useState<string | null>(null);
+  const [mbModal, setMbModal] = useState<{ accId: string; nombreNes: string; nombreVivants: string } | null>(null);
+  const [mbLoading, setMbLoading] = useState(false);
+  const [mbError, setMbError] = useState("");
+
+  async function handleEnregistrerMiseBas() {
+    if (!mbModal) return;
+    const nes = parseInt(mbModal.nombreNes);
+    const vivants = parseInt(mbModal.nombreVivants);
+    if (!nes || nes < 0) { setMbError("Veuillez saisir le nombre de nés."); return; }
+    if (vivants === undefined || vivants < 0 || vivants > nes) { setMbError("Nombre de vivants invalide."); return; }
+    setMbLoading(true);
+    setMbError("");
+    await fetch(`/api/accouplements/${mbModal.accId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ statut: "mise_bas", nombreNes: nes, nombreVivants: vivants, dateMiseBas: new Date().toISOString() }),
+    });
+    setMbModal(null);
+    setMbLoading(false);
+    fetchData();
+  }
 
   async function handleEchec(id: string) {
     await fetch(`/api/accouplements/${id}`, {
@@ -112,6 +135,14 @@ export default function CycleDeViePage() {
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  function nomCouple(a: Accouplement): string {
+    const mb = a.dateMiseBas ? new Date(a.dateMiseBas) : null;
+    const datePart = mb
+      ? `MB-${String(mb.getDate()).padStart(2, "0")}${String(mb.getMonth() + 1).padStart(2, "0")}${mb.getFullYear()}`
+      : "MB-?";
+    return `${a.mere?.name ?? "?"}×${a.pere?.name ?? "?"}-${datePart}`;
+  }
 
   const enrichedAccouplements = accouplements.map((a) => ({
     ...a,
@@ -256,35 +287,59 @@ export default function CycleDeViePage() {
       {/* VUE MISE-BAS */}
       {activeStep === "mise_bas" && (
         <div className="space-y-4">
-          <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
-            <Heart className="h-4 w-4 text-forest-600" />
-            Mises-bas effectuées ({enrichedAccouplements.filter(a => a.statut === "mise_bas").length})
-          </h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
+              <Heart className="h-4 w-4 text-forest-600" />
+              Mises-bas effectuées ({enrichedAccouplements.filter(a => a.statut === "mise_bas").length})
+            </h2>
+            {enrichedAccouplements.filter(a => a.statut === "en_cours").length > 0 && (
+              <button
+                onClick={() => { setMbModal({ accId: "", nombreNes: "", nombreVivants: "" }); setMbError(""); }}
+                className="inline-flex items-center gap-2 bg-forest-600 hover:bg-forest-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+              >
+                <Plus className="h-4 w-4" />
+                Enregistrer une mise-bas
+              </button>
+            )}
+          </div>
           {enrichedAccouplements.filter(a => a.statut === "mise_bas").length === 0 ? (
             <div className="text-center py-12 bg-white rounded-xl border border-earth-100">
               <Heart className="h-10 w-10 text-earth-300 mx-auto mb-3" />
               <p className="text-muted-foreground">Aucune mise-bas enregistrée</p>
+              <p className="text-sm text-muted-foreground mt-1">Utilisez le bouton ci-dessus pour en enregistrer une</p>
             </div>
           ) : (
             enrichedAccouplements.filter(a => a.statut === "mise_bas").map(acc => {
               const joursSevrage = acc.dateMiseBas ? Math.max(0, Math.floor((Date.now() - new Date(acc.dateMiseBas).getTime()) / 86400000)) : 0;
+              const morts = (acc.nombreNes ?? 0) - (acc.nombreVivants ?? 0);
               return (
                 <div key={acc.id} className="bg-white rounded-xl border border-earth-100 shadow-sm p-5 space-y-3">
                   <div className="flex items-center justify-between flex-wrap gap-2">
-                    <p className="font-semibold">🐇 {acc.mere?.name} <span className="text-xs font-mono text-muted-foreground">({acc.mere?.identifiant})</span></p>
+                    <div>
+                      <p className="font-semibold text-sm font-mono text-forest-700">{nomCouple(acc)}</p>
+                      <p className="text-xs text-muted-foreground">🐇 {acc.mere?.name} × {acc.pere?.name}</p>
+                    </div>
                     <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-forest-100 text-forest-700 border border-forest-200">Mise-bas effectuée</span>
                   </div>
-                  <div className="grid grid-cols-3 gap-3 text-sm">
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-sm">
                     <div className="bg-forest-50 rounded-lg p-3">
                       <p className="text-xs text-muted-foreground mb-0.5">Date mise-bas</p>
                       <p className="font-semibold">{acc.dateMiseBas ? formatDate(acc.dateMiseBas) : "—"}</p>
                     </div>
                     <div className="bg-forest-50 rounded-lg p-3">
-                      <p className="text-xs text-muted-foreground mb-0.5">Nés vivants</p>
-                      <p className="font-semibold text-forest-700">{acc.nombreVivants ?? "—"} / {acc.nombreNes ?? "—"}</p>
+                      <p className="text-xs text-muted-foreground mb-0.5">Total nés</p>
+                      <p className="font-semibold">{acc.nombreNes ?? "—"}</p>
                     </div>
                     <div className="bg-forest-50 rounded-lg p-3">
-                      <p className="text-xs text-muted-foreground mb-0.5">Sevrage dans</p>
+                      <p className="text-xs text-muted-foreground mb-0.5">Vivants</p>
+                      <p className="font-semibold text-forest-700">{acc.nombreVivants ?? "—"}</p>
+                    </div>
+                    <div className="bg-red-50 rounded-lg p-3">
+                      <p className="text-xs text-muted-foreground mb-0.5">Morts</p>
+                      <p className={`font-semibold ${morts > 0 ? "text-red-600" : "text-muted-foreground"}`}>{acc.nombreNes !== null ? morts : "—"}</p>
+                    </div>
+                    <div className="bg-amber-50 rounded-lg p-3">
+                      <p className="text-xs text-muted-foreground mb-0.5">Sevrage</p>
                       <p className={`font-semibold ${joursSevrage >= 28 ? "text-amber-600" : "text-forest-700"}`}>
                         {joursSevrage >= 28 ? "À faire !" : `J${joursSevrage}/28`}
                       </p>
@@ -530,6 +585,88 @@ export default function CycleDeViePage() {
           </div>
         )}
       </div>}
+
+      {/* MODAL ENREGISTREMENT MISE-BAS */}
+      {mbModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 space-y-5">
+            <div className="flex items-center gap-2">
+              <Baby className="h-5 w-5 text-forest-600" />
+              <h3 className="text-base font-bold">Enregistrer une mise-bas</h3>
+            </div>
+
+            {/* Sélection du couple */}
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Couple <span className="text-red-500">*</span></label>
+              <select
+                value={mbModal.accId}
+                onChange={(e) => setMbModal(m => m ? { ...m, accId: e.target.value } : null)}
+                className="w-full h-10 px-3 rounded-lg border border-earth-200 bg-cream-50 text-sm focus:outline-none focus:ring-2 focus:ring-forest-400"
+              >
+                <option value="">— Choisir le couple —</option>
+                {enrichedAccouplements.filter(a => a.statut === "en_cours").map(a => (
+                  <option key={a.id} value={a.id}>{nomCouple(a)}</option>
+                ))}
+              </select>
+              {mbModal.accId && (
+                <p className="text-xs text-muted-foreground">
+                  {(() => {
+                    const a = enrichedAccouplements.find(x => x.id === mbModal.accId);
+                    return a ? `Mère : ${a.mere?.name} · Père : ${a.pere?.name} · MB prévue : ${a.dateMiseBas ? formatDate(a.dateMiseBas) : "—"}` : "";
+                  })()}
+                </p>
+              )}
+            </div>
+
+            {/* Nés / Vivants / Morts */}
+            <div className="grid grid-cols-3 gap-3">
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Nés <span className="text-red-500">*</span></label>
+                <input
+                  type="number" min="0"
+                  value={mbModal.nombreNes}
+                  onChange={(e) => setMbModal(m => m ? { ...m, nombreNes: e.target.value } : null)}
+                  className="w-full h-10 px-3 rounded-lg border border-earth-200 bg-cream-50 text-sm focus:outline-none focus:ring-2 focus:ring-forest-400"
+                  placeholder="Ex: 8"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Vivants <span className="text-red-500">*</span></label>
+                <input
+                  type="number" min="0"
+                  value={mbModal.nombreVivants}
+                  onChange={(e) => setMbModal(m => m ? { ...m, nombreVivants: e.target.value } : null)}
+                  className="w-full h-10 px-3 rounded-lg border border-earth-200 bg-cream-50 text-sm focus:outline-none focus:ring-2 focus:ring-forest-400"
+                  placeholder="Ex: 7"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-red-600">Morts (auto)</label>
+                <div className="w-full h-10 px-3 rounded-lg border border-red-100 bg-red-50 text-sm flex items-center font-semibold text-red-700">
+                  {mbModal.nombreNes && mbModal.nombreVivants
+                    ? Math.max(0, parseInt(mbModal.nombreNes) - parseInt(mbModal.nombreVivants))
+                    : "—"}
+                </div>
+              </div>
+            </div>
+
+            {mbError && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{mbError}</p>}
+
+            <div className="flex gap-2 pt-1">
+              <button onClick={() => setMbModal(null)} className="flex-1 px-4 py-2 text-sm border border-earth-200 rounded-lg hover:bg-earth-50 transition-colors">
+                Annuler
+              </button>
+              <button
+                onClick={handleEnregistrerMiseBas}
+                disabled={mbLoading || !mbModal.accId}
+                className="flex-1 px-4 py-2 text-sm font-medium bg-forest-600 hover:bg-forest-700 text-white rounded-lg transition-colors disabled:opacity-50"
+              >
+                {mbLoading ? "Enregistrement..." : "Enregistrer"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
