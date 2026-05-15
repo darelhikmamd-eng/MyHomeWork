@@ -135,15 +135,9 @@ export function EditRabbitForm({ rabbit, onSuccess }: EditRabbitFormProps) {
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4 mt-2">
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="edit-name">Nom *</Label>
-              <Input id="edit-name" value={form.name} onChange={field("name")} required />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="edit-identifiant">Identifiant *</Label>
-              <Input id="edit-identifiant" value={form.identifiant} onChange={field("identifiant")} required />
-            </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="edit-name">Nom *</Label>
+            <Input id="edit-name" value={form.name} onChange={field("name")} required />
           </div>
 
           <div className="space-y-1.5">

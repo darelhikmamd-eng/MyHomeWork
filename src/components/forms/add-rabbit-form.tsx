@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Loader2, RefreshCw } from "lucide-react";
+import { Plus, Loader2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -98,26 +98,10 @@ export function AddRabbitForm({ onSuccess }: AddRabbitFormProps) {
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4 mt-2">
-          {/* Nom + Identifiant */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="name">Nom *</Label>
-              <Input id="name" placeholder="Ex : Blanche" value={form.name} onChange={field("name")} required />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="identifiant">Identifiant * <span className="text-xs text-muted-foreground font-normal">(auto-généré, modifiable)</span></Label>
-              <div className="flex gap-1.5">
-                <Input id="identifiant" placeholder="LAP-001" value={form.identifiant} onChange={field("identifiant")} required className="flex-1" />
-                <button
-                  type="button"
-                  onClick={() => generateIdentifiant().then((id) => setForm((f) => ({ ...f, identifiant: id })))}
-                  className="p-2 rounded-lg border border-earth-200 hover:bg-earth-50 text-muted-foreground transition-colors"
-                  title="Régénérer un identifiant"
-                >
-                  <RefreshCw className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
+          {/* Nom */}
+          <div className="space-y-1.5">
+            <Label htmlFor="name">Nom *</Label>
+            <Input id="name" placeholder="Ex : Blanche" value={form.name} onChange={field("name")} required />
           </div>
 
           {/* Race */}
