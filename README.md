@@ -2,7 +2,7 @@
 
 > Application web complète de gestion de ferme cuniculture — suivi des lapins, reproduction, santé, alimentation et finances.
 
-**🌐 Production :** [https://cuni-gestion.vercel.app](https://cuni-gestion.vercel.app)
+**🌐 Production :** [https://cunigestion-alpha.vercel.app](https://cunigestion-alpha.vercel.app)
 
 ---
 

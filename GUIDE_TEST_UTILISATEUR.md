@@ -1,6 +1,6 @@
 # 📋 Guide de Test Utilisateur — CuniGestion
 
-**Site à tester :** https://cuni-gestion.vercel.app  
+**Site à tester :** https://cunigestion-alpha.vercel.app  
 **Durée estimée :** 45 à 60 minutes  
 **Niveau requis :** Aucune connaissance informatique particulière
 
