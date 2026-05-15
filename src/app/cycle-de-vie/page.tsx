@@ -618,52 +618,72 @@ export default function CycleDeViePage() {
               )}
             </div>
 
-            {/* Nés / Vivants / Morts */}
-            <div className="grid grid-cols-3 gap-3">
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium">Nés <span className="text-red-500">*</span></label>
-                <input
-                  type="number" min="0"
-                  value={mbModal.nombreNes}
-                  onChange={(e) => setMbModal(m => m ? { ...m, nombreNes: e.target.value } : null)}
-                  className="w-full h-10 px-3 rounded-lg border border-earth-200 bg-cream-50 text-sm focus:outline-none focus:ring-2 focus:ring-forest-400"
-                  placeholder="Ex: 8"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium">Vivants <span className="text-red-500">*</span></label>
-                <input
-                  type="number" min="0"
-                  value={mbModal.nombreVivants}
-                  onChange={(e) => setMbModal(m => m ? { ...m, nombreVivants: e.target.value } : null)}
-                  className="w-full h-10 px-3 rounded-lg border border-earth-200 bg-cream-50 text-sm focus:outline-none focus:ring-2 focus:ring-forest-400"
-                  placeholder="Ex: 7"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-red-600">Morts (auto)</label>
-                <div className="w-full h-10 px-3 rounded-lg border border-red-100 bg-red-50 text-sm flex items-center font-semibold text-red-700">
-                  {mbModal.nombreNes && mbModal.nombreVivants
-                    ? Math.max(0, parseInt(mbModal.nombreNes) - parseInt(mbModal.nombreVivants))
-                    : "—"}
-                </div>
-              </div>
-            </div>
-
-            {mbError && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{mbError}</p>}
-
-            <div className="flex gap-2 pt-1">
-              <button onClick={() => setMbModal(null)} className="flex-1 px-4 py-2 text-sm border border-earth-200 rounded-lg hover:bg-earth-50 transition-colors">
-                Annuler
-              </button>
-              <button
-                onClick={handleEnregistrerMiseBas}
-                disabled={mbLoading || !mbModal.accId}
-                className="flex-1 px-4 py-2 text-sm font-medium bg-forest-600 hover:bg-forest-700 text-white rounded-lg transition-colors disabled:opacity-50"
-              >
-                {mbLoading ? "Enregistrement..." : "Enregistrer"}
-              </button>
-            </div>
+            {/* Vérification date prévue */}
+            {(() => {
+              const selectedAcc = enrichedAccouplements.find(x => x.id === mbModal.accId);
+              const dateNonAtteinte = selectedAcc?.dateMiseBas && new Date(selectedAcc.dateMiseBas) > new Date();
+              const fieldsDisabled = !mbModal.accId || !!dateNonAtteinte;
+              return (
+                <>
+                  {dateNonAtteinte && selectedAcc && (
+                    <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5 text-xs text-amber-800">
+                      <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5 text-amber-600" />
+                      <span>
+                        La mise-bas pour ce couple n&apos;est pas encore prévue avant le{" "}
+                        <strong>{formatDate(selectedAcc.dateMiseBas!)}</strong>.
+                        Vous ne pouvez pas enregistrer une mise-bas avant cette date.
+                      </span>
+                    </div>
+                  )}
+                  {/* Nés / Vivants / Morts */}
+                  <div className={`grid grid-cols-3 gap-3 ${fieldsDisabled ? "opacity-40 pointer-events-none select-none" : ""}`}>
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-medium">Nés <span className="text-red-500">*</span></label>
+                      <input
+                        type="number" min="0"
+                        value={mbModal.nombreNes}
+                        disabled={fieldsDisabled}
+                        onChange={(e) => setMbModal(m => m ? { ...m, nombreNes: e.target.value } : null)}
+                        className="w-full h-10 px-3 rounded-lg border border-earth-200 bg-cream-50 text-sm focus:outline-none focus:ring-2 focus:ring-forest-400 disabled:cursor-not-allowed"
+                        placeholder="Ex: 8"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-medium">Vivants <span className="text-red-500">*</span></label>
+                      <input
+                        type="number" min="0"
+                        value={mbModal.nombreVivants}
+                        disabled={fieldsDisabled}
+                        onChange={(e) => setMbModal(m => m ? { ...m, nombreVivants: e.target.value } : null)}
+                        className="w-full h-10 px-3 rounded-lg border border-earth-200 bg-cream-50 text-sm focus:outline-none focus:ring-2 focus:ring-forest-400 disabled:cursor-not-allowed"
+                        placeholder="Ex: 7"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-medium text-red-600">Morts (auto)</label>
+                      <div className="w-full h-10 px-3 rounded-lg border border-red-100 bg-red-50 text-sm flex items-center font-semibold text-red-700">
+                        {mbModal.nombreNes && mbModal.nombreVivants
+                          ? Math.max(0, parseInt(mbModal.nombreNes) - parseInt(mbModal.nombreVivants))
+                          : "—"}
+                      </div>
+                    </div>
+                  </div>
+                  {mbError && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{mbError}</p>}
+                  <div className="flex gap-2 pt-1">
+                    <button onClick={() => setMbModal(null)} className="flex-1 px-4 py-2 text-sm border border-earth-200 rounded-lg hover:bg-earth-50 transition-colors">
+                      Annuler
+                    </button>
+                    <button
+                      onClick={handleEnregistrerMiseBas}
+                      disabled={mbLoading || !mbModal.accId || !!dateNonAtteinte}
+                      className="flex-1 px-4 py-2 text-sm font-medium bg-forest-600 hover:bg-forest-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {mbLoading ? "Enregistrement..." : "Enregistrer"}
+                    </button>
+                  </div>
+                </>
+              );
+            })()}
           </div>
         </div>
       )}
