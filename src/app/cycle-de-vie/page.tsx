@@ -89,7 +89,7 @@ export default function CycleDeViePage() {
     await fetch(`/api/accouplements/${mbModal.accId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ statut: "mise_bas", nombreNes: nes, nombreVivants: vivants, dateMiseBas: new Date().toISOString() }),
+      body: JSON.stringify({ statut: "mise_bas", nombreNes: nes, nombreVivants: vivants }),
     });
     setMbModal(null);
     setMbLoading(false);
