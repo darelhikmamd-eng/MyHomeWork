@@ -68,7 +68,7 @@ export default function CycleDeViePage() {
     await fetch(`/api/accouplements/${miseBas.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ statut: "mise_bas", nombreNes: miseBas.nombreNes, nombreVivants: miseBas.nombreVivants }),
+      body: JSON.stringify({ statut: "mise_bas", nombreNes: miseBas.nombreNes, nombreVivants: miseBas.nombreVivants, dateMiseBas: new Date().toISOString() }),
     });
     setMiseBas(null);
     setMbLoading(false);
@@ -256,7 +256,9 @@ export default function CycleDeViePage() {
                     <p className="text-sm font-semibold">{formatDate(acc.dateAccouplement)}</p>
                   </div>
                   <div className="bg-cream-50 rounded-lg p-3">
-                    <p className="text-xs text-muted-foreground mb-0.5">Mise-bas prévue</p>
+                    <p className="text-xs text-muted-foreground mb-0.5">
+                      {acc.statut === "mise_bas" ? "Mise-bas effectuée le" : "Mise-bas prévue"}
+                    </p>
                     <p className="text-sm font-semibold">{acc.dateMiseBas ? formatDate(acc.dateMiseBas) : "—"}</p>
                   </div>
                   {acc.statut === "mise_bas" && acc.nombreNes && (
@@ -295,12 +297,23 @@ export default function CycleDeViePage() {
 
                 {/* Step flow visualization */}
                 <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide">
-                  {[
-                    { label: "Accouplement", done: true },
-                    { label: "Gestation (31j)", done: acc.statut !== "en_cours" || acc.gestationProgress >= 100 },
-                    { label: "Mise-bas", done: acc.statut === "mise_bas" },
-                    { label: "Sevrage (28j)", done: false },
-                  ].map((step, i, arr) => (
+                  {(() => {
+                    const joursSevrage = acc.statut === "mise_bas" && acc.dateMiseBas
+                      ? Math.floor((Date.now() - new Date(acc.dateMiseBas).getTime()) / 86400000)
+                      : null;
+                    const sevrageAtteint = joursSevrage !== null && joursSevrage >= 28;
+                    const sevrageLabel = joursSevrage !== null
+                      ? sevrageAtteint
+                        ? "Sevrage (à faire)"
+                        : `Sevrage (J${joursSevrage}/28)`
+                      : "Sevrage (28j)";
+                    return [
+                      { label: "Accouplement", done: true },
+                      { label: "Gestation (31j)", done: acc.statut !== "en_cours" || acc.gestationProgress >= 100 },
+                      { label: "Mise-bas", done: acc.statut === "mise_bas" },
+                      { label: sevrageLabel, done: sevrageAtteint },
+                    ];
+                  })().map((step, i, arr) => (
                     <div key={step.label} className="flex items-center gap-1 flex-shrink-0">
                       <div className="flex flex-col items-center">
                         <div
