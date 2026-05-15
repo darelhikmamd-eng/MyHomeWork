@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Plus, Loader2 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Plus, Loader2, RefreshCw } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -16,6 +16,17 @@ import { Textarea } from "@/components/ui/textarea";
 
 interface AddRabbitFormProps {
   onSuccess: () => void;
+}
+
+async function generateIdentifiant(): Promise<string> {
+  try {
+    const res = await fetch("/api/rabbits");
+    const data = await res.json();
+    const count = Array.isArray(data) ? data.length + 1 : 1;
+    return `LAP-${String(count).padStart(3, "0")}`;
+  } catch {
+    return `LAP-${String(Date.now()).slice(-3)}`;
+  }
 }
 
 export function AddRabbitForm({ onSuccess }: AddRabbitFormProps) {
@@ -36,6 +47,14 @@ export function AddRabbitForm({ onSuccess }: AddRabbitFormProps) {
     notes: "",
   });
 
+  useEffect(() => {
+    if (open) {
+      generateIdentifiant().then((id) =>
+        setForm((f) => ({ ...f, identifiant: id }))
+      );
+    }
+  }, [open]);
+
   const field = (key: keyof typeof form) => (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => setForm((f) => ({ ...f, [key]: e.target.value }));
@@ -52,6 +71,7 @@ export function AddRabbitForm({ onSuccess }: AddRabbitFormProps) {
         body: JSON.stringify(form),
       });
       const data = await res.json();
+      if (res.status === 409) throw new Error(`❌ L'identifiant "${form.identifiant}" est déjà utilisé. Cliquez sur 🔄 pour en générer un nouveau.`);
       if (!res.ok) throw new Error(data.error || "Erreur inconnue");
 
       setOpen(false);
@@ -85,8 +105,18 @@ export function AddRabbitForm({ onSuccess }: AddRabbitFormProps) {
               <Input id="name" placeholder="Ex : Blanche" value={form.name} onChange={field("name")} required />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="identifiant">Identifiant *</Label>
-              <Input id="identifiant" placeholder="Ex : F-001" value={form.identifiant} onChange={field("identifiant")} required />
+              <Label htmlFor="identifiant">Identifiant * <span className="text-xs text-muted-foreground font-normal">(auto-généré, modifiable)</span></Label>
+              <div className="flex gap-1.5">
+                <Input id="identifiant" placeholder="LAP-001" value={form.identifiant} onChange={field("identifiant")} required className="flex-1" />
+                <button
+                  type="button"
+                  onClick={() => generateIdentifiant().then((id) => setForm((f) => ({ ...f, identifiant: id })))}
+                  className="p-2 rounded-lg border border-earth-200 hover:bg-earth-50 text-muted-foreground transition-colors"
+                  title="Régénérer un identifiant"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                </button>
+              </div>
             </div>
           </div>
 
