@@ -315,7 +315,7 @@ export default function AlimentationPage() {
             </div>
             <span className="text-xs text-muted-foreground font-medium">Valeur stock</span>
           </div>
-          <p className="text-2xl font-bold">{totalValeurStock.toFixed(0)} €</p>
+          <p className="text-2xl font-bold">{totalValeurStock.toFixed(0)} FCFA</p>
         </div>
       </div>
 
@@ -400,7 +400,7 @@ export default function AlimentationPage() {
                           {aliment.stockActuel} <span className="text-sm font-normal text-muted-foreground">{aliment.unite}</span>
                         </p>
                         {aliment.prixUnitaire && (
-                          <p className="text-xs text-muted-foreground">{aliment.prixUnitaire} €/{aliment.unite}</p>
+                          <p className="text-xs text-muted-foreground">{aliment.prixUnitaire} FCFA/{aliment.unite}</p>
                         )}
                       </div>
                     </div>

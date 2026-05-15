@@ -58,7 +58,7 @@ const tooltipStyle = {
 };
 
 function formatEur(n: number) {
-  return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(n);
+  return new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(n) + " FCFA";
 }
 
 export default function FinancesPage() {
@@ -235,10 +235,10 @@ export default function FinancesPage() {
           >
             <CartesianGrid strokeDasharray="3 3" stroke="#e8e2c4" />
             <XAxis dataKey="mois" tick={{ fontSize: 10, fill: "#8b6d42" }} />
-            <YAxis tick={{ fontSize: 11, fill: "#8b6d42" }} tickFormatter={(v) => `${v}€`} />
+            <YAxis tick={{ fontSize: 11, fill: "#8b6d42" }} tickFormatter={(v) => `${v} F`} />
             <Tooltip
               contentStyle={tooltipStyle}
-              formatter={(v: number) => [`${v.toFixed(0)} €`, ""]}
+              formatter={(v: number) => [`${v.toFixed(0)} FCFA`, ""]}
             />
             <Legend />
             <Bar dataKey="recettes" name="Recettes" fill="#5a9e5a" radius={[4, 4, 0, 0]} />

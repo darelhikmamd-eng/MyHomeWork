@@ -155,7 +155,7 @@ export function AddTransactionForm({ defaultType = "depense", onSuccess }: Props
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="montant">Montant (€) *</Label>
+              <Label htmlFor="montant">Montant (FCFA) *</Label>
               <Input
                 id="montant"
                 type="number"

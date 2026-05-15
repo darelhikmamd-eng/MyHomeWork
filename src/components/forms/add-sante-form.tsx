@@ -146,7 +146,7 @@ export function AddSanteForm({ rabbits, onSuccess }: AddSanteFormProps) {
                 <Input id="veterinaire" placeholder="Dr. Dupont" value={form.veterinaire} onChange={field("veterinaire")} />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="cout">Coût (€)</Label>
+                <Label htmlFor="cout">Coût (FCFA)</Label>
                 <Input id="cout" type="number" step="0.01" placeholder="Ex : 35.50" value={form.cout} onChange={field("cout")} />
               </div>
             </div>

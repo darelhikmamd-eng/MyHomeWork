@@ -190,7 +190,7 @@ export function AddAlimentForm({ onSuccess }: Props) {
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="prixUnitaire">Prix unitaire (€)</Label>
+              <Label htmlFor="prixUnitaire">Prix unitaire (FCFA)</Label>
               <Input id="prixUnitaire" type="number" step="0.01" min="0" placeholder="0.00" value={form.prixUnitaire} onChange={(e) => set("prixUnitaire", e.target.value)} />
             </div>
 
