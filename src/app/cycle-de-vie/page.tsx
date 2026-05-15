@@ -177,8 +177,182 @@ export default function CycleDeViePage() {
         </div>
       </div>
 
-      {/* Timeline cards */}
-      <div className="space-y-4">
+      {/* VUE GESTATION */}
+      {activeStep === "gestation" && (
+        <div className="space-y-4">
+          <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
+            <Clock className="h-4 w-4 text-amber-600" />
+            Gestations en cours ({enrichedAccouplements.filter(a => a.statut === "en_cours").length})
+          </h2>
+          {/* Résumé */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {[
+              { label: "En gestation", value: enrichedAccouplements.filter(a => a.statut === "en_cours").length, color: "text-amber-700", bg: "bg-amber-50" },
+              { label: "Mise-bas < 7j", value: enrichedAccouplements.filter(a => a.statut === "en_cours" && a.daysUntilBirth !== null && a.daysUntilBirth >= 0 && a.daysUntilBirth <= 7).length, color: "text-red-700", bg: "bg-red-50" },
+              { label: "Progression moy.", value: enrichedAccouplements.filter(a => a.statut === "en_cours").length > 0 ? Math.round(enrichedAccouplements.filter(a => a.statut === "en_cours").reduce((s, a) => s + a.gestationProgress, 0) / enrichedAccouplements.filter(a => a.statut === "en_cours").length) + "%" : "—", color: "text-forest-700", bg: "bg-forest-50" },
+              { label: "Mises-bas effectuées", value: enrichedAccouplements.filter(a => a.statut === "mise_bas").length, color: "text-sage-700", bg: "bg-sage-50" },
+            ].map(s => (
+              <div key={s.label} className={`${s.bg} rounded-xl p-4 border border-earth-100`}>
+                <p className="text-xs text-muted-foreground mb-1">{s.label}</p>
+                <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
+              </div>
+            ))}
+          </div>
+          {/* Tableau des gestations */}
+          {enrichedAccouplements.filter(a => a.statut === "en_cours").length === 0 ? (
+            <div className="text-center py-12 bg-white rounded-xl border border-earth-100">
+              <Clock className="h-10 w-10 text-earth-300 mx-auto mb-3" />
+              <p className="text-muted-foreground">Aucune gestation en cours</p>
+            </div>
+          ) : (
+            enrichedAccouplements.filter(a => a.statut === "en_cours").map(acc => (
+              <div key={acc.id} className="bg-white rounded-xl border border-earth-100 shadow-sm p-5 space-y-4">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div>
+                    <p className="font-semibold text-base">🐇 {acc.mere?.name} <span className="text-xs font-mono text-muted-foreground ml-1">({acc.mere?.identifiant})</span></p>
+                    <p className="text-xs text-muted-foreground">Père : {acc.pere?.name} ({acc.pere?.identifiant}) · Race : {acc.mere?.race}</p>
+                  </div>
+                  {acc.daysUntilBirth !== null && acc.daysUntilBirth <= 7 && acc.daysUntilBirth >= 0 && (
+                    <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-red-100 text-red-700 border border-red-200 flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3" /> Imminente dans {acc.daysUntilBirth}j
+                    </span>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+                  <div className="bg-cream-50 rounded-lg p-3">
+                    <p className="text-xs text-muted-foreground mb-0.5">Date accouplement</p>
+                    <p className="font-semibold">{formatDate(acc.dateAccouplement)}</p>
+                  </div>
+                  <div className="bg-cream-50 rounded-lg p-3">
+                    <p className="text-xs text-muted-foreground mb-0.5">Mise-bas prévue</p>
+                    <p className="font-semibold text-amber-700">{acc.dateMiseBas ? formatDate(acc.dateMiseBas) : "—"}</p>
+                  </div>
+                  <div className="bg-cream-50 rounded-lg p-3">
+                    <p className="text-xs text-muted-foreground mb-0.5">Jours de gestation</p>
+                    <p className="font-semibold">{Math.floor((Date.now() - new Date(acc.dateAccouplement).getTime()) / 86400000)} / 31 jours</p>
+                  </div>
+                  <div className="bg-cream-50 rounded-lg p-3">
+                    <p className="text-xs text-muted-foreground mb-0.5">Jours restants</p>
+                    <p className={`font-semibold ${acc.daysUntilBirth !== null && acc.daysUntilBirth <= 3 ? "text-red-600" : "text-forest-700"}`}>
+                      {acc.daysUntilBirth !== null ? `J-${Math.max(0, acc.daysUntilBirth)}` : "—"}
+                    </p>
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>Progression gestation</span>
+                    <span className="font-semibold text-forest-700">{acc.gestationProgress}%</span>
+                  </div>
+                  <div className="h-3 bg-earth-100 rounded-full overflow-hidden">
+                    <div className="h-full bg-gradient-to-r from-amber-400 to-forest-500 rounded-full transition-all" style={{ width: `${acc.gestationProgress}%` }} />
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+
+      {/* VUE MISE-BAS */}
+      {activeStep === "mise_bas" && (
+        <div className="space-y-4">
+          <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
+            <Heart className="h-4 w-4 text-forest-600" />
+            Mises-bas effectuées ({enrichedAccouplements.filter(a => a.statut === "mise_bas").length})
+          </h2>
+          {enrichedAccouplements.filter(a => a.statut === "mise_bas").length === 0 ? (
+            <div className="text-center py-12 bg-white rounded-xl border border-earth-100">
+              <Heart className="h-10 w-10 text-earth-300 mx-auto mb-3" />
+              <p className="text-muted-foreground">Aucune mise-bas enregistrée</p>
+            </div>
+          ) : (
+            enrichedAccouplements.filter(a => a.statut === "mise_bas").map(acc => {
+              const joursSevrage = acc.dateMiseBas ? Math.max(0, Math.floor((Date.now() - new Date(acc.dateMiseBas).getTime()) / 86400000)) : 0;
+              return (
+                <div key={acc.id} className="bg-white rounded-xl border border-earth-100 shadow-sm p-5 space-y-3">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <p className="font-semibold">🐇 {acc.mere?.name} <span className="text-xs font-mono text-muted-foreground">({acc.mere?.identifiant})</span></p>
+                    <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-forest-100 text-forest-700 border border-forest-200">Mise-bas effectuée</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3 text-sm">
+                    <div className="bg-forest-50 rounded-lg p-3">
+                      <p className="text-xs text-muted-foreground mb-0.5">Date mise-bas</p>
+                      <p className="font-semibold">{acc.dateMiseBas ? formatDate(acc.dateMiseBas) : "—"}</p>
+                    </div>
+                    <div className="bg-forest-50 rounded-lg p-3">
+                      <p className="text-xs text-muted-foreground mb-0.5">Nés vivants</p>
+                      <p className="font-semibold text-forest-700">{acc.nombreVivants ?? "—"} / {acc.nombreNes ?? "—"}</p>
+                    </div>
+                    <div className="bg-forest-50 rounded-lg p-3">
+                      <p className="text-xs text-muted-foreground mb-0.5">Sevrage dans</p>
+                      <p className={`font-semibold ${joursSevrage >= 28 ? "text-amber-600" : "text-forest-700"}`}>
+                        {joursSevrage >= 28 ? "À faire !" : `J${joursSevrage}/28`}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      )}
+
+      {/* VUE SEVRAGE */}
+      {activeStep === "sevrage" && (
+        <div className="space-y-4">
+          <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
+            <Milk className="h-4 w-4 text-sage-600" />
+            Sevrages à effectuer ({enrichedAccouplements.filter(a => a.statut === "mise_bas" && a.dateMiseBas && Math.floor((Date.now() - new Date(a.dateMiseBas).getTime()) / 86400000) >= 28).length})
+          </h2>
+          {enrichedAccouplements.filter(a => a.statut === "mise_bas").length === 0 ? (
+            <div className="text-center py-12 bg-white rounded-xl border border-earth-100">
+              <Milk className="h-10 w-10 text-earth-300 mx-auto mb-3" />
+              <p className="text-muted-foreground">Aucun sevrage à venir pour l&apos;instant</p>
+            </div>
+          ) : (
+            enrichedAccouplements.filter(a => a.statut === "mise_bas").map(acc => {
+              const jours = acc.dateMiseBas ? Math.max(0, Math.floor((Date.now() - new Date(acc.dateMiseBas).getTime()) / 86400000)) : 0;
+              const urgent = jours >= 28;
+              return (
+                <div key={acc.id} className={`rounded-xl border shadow-sm p-5 space-y-3 ${urgent ? "bg-amber-50 border-amber-200" : "bg-white border-earth-100"}`}>
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <p className="font-semibold">🐇 {acc.mere?.name} <span className="text-xs font-mono text-muted-foreground">({acc.mere?.identifiant})</span></p>
+                    <span className={`text-xs font-medium px-2.5 py-1 rounded-full border ${urgent ? "bg-amber-100 text-amber-700 border-amber-300" : "bg-sage-100 text-sage-700 border-sage-200"}`}>
+                      {urgent ? "⚠️ Sevrage urgent" : `J${jours}/28`}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3 text-sm">
+                    <div className="bg-white rounded-lg p-3 border border-earth-100">
+                      <p className="text-xs text-muted-foreground mb-0.5">Date mise-bas</p>
+                      <p className="font-semibold">{acc.dateMiseBas ? formatDate(acc.dateMiseBas) : "—"}</p>
+                    </div>
+                    <div className="bg-white rounded-lg p-3 border border-earth-100">
+                      <p className="text-xs text-muted-foreground mb-0.5">Lapereaux vivants</p>
+                      <p className="font-semibold">{acc.nombreVivants ?? "—"}</p>
+                    </div>
+                    <div className="bg-white rounded-lg p-3 border border-earth-100">
+                      <p className="text-xs text-muted-foreground mb-0.5">Date sevrage prévue</p>
+                      <p className="font-semibold">{acc.dateMiseBas ? formatDate(new Date(new Date(acc.dateMiseBas).getTime() + 28 * 86400000).toISOString()) : "—"}</p>
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>Progression sevrage</span>
+                      <span className="font-semibold">{Math.min(100, Math.round((jours / 28) * 100))}%</span>
+                    </div>
+                    <div className="h-2 bg-earth-100 rounded-full overflow-hidden">
+                      <div className={`h-full rounded-full transition-all ${urgent ? "bg-amber-500" : "bg-sage-400"}`} style={{ width: `${Math.min(100, Math.round((jours / 28) * 100))}%` }} />
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      )}
+
+      {/* VUE ACCOUPLEMENT (défaut) */}
+      {activeStep === "accouplement" && <div className="space-y-4">
         <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
           <Calendar className="h-4 w-4 text-forest-600" />
           Accouplements en cours ({enrichedAccouplements.length})
@@ -355,7 +529,7 @@ export default function CycleDeViePage() {
             </p>
           </div>
         )}
-      </div>
+      </div>}
 
     </div>
   );
