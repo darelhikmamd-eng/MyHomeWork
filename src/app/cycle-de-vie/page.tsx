@@ -145,9 +145,9 @@ export default function CycleDeViePage() {
     const done = accouplements.filter(a => a.id !== acc.id && a.statut === "mise_bas" && a.nombreNes !== null);
     const sameCouple = done.filter(a => a.mereId === acc.mereId && a.pereId === acc.pereId);
     const sameMere   = done.filter(a => a.mereId === acc.mereId);
-    const pool = sameCouple.length > 0 ? { list: sameCouple, source: `ce couple (${sameCouple.length} mise-bas)` }
-               : sameMere.length   > 0 ? { list: sameMere,   source: `cette femelle (${sameMere.length} mise-bas)` }
-               : done.length       > 0 ? { list: done,       source: `l\u2019élevage (${done.length} mise-bas)` }
+    const pool = sameCouple.length > 0 ? { list: sameCouple, source: "ce couple" }
+               : sameMere.length   > 0 ? { list: sameMere,   source: "cette femelle" }
+               : done.length       > 0 ? { list: done,       source: "l\u2019élevage" }
                : null;
     if (!pool) return { prevNes: null, prevVivants: null, count: 0, source: "" };
     const avg = (arr: Accouplement[], field: "nombreNes" | "nombreVivants") =>
@@ -386,7 +386,7 @@ export default function CycleDeViePage() {
                     <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 text-xs text-blue-800">
                       <span>📊</span>
                       <span>
-                        Prévision ({prev.source}) : <strong>{prev.prevNes} nés</strong> · Réel : <strong>{acc.nombreNes ?? "—"} nés</strong>
+                        Prévision ({prev.count} mise-bas) : <strong>{prev.prevNes} nés</strong> · Réel : <strong>{acc.nombreNes ?? "—"} nés</strong>
                         {diffNes !== null && (
                           <span className={`ml-1 font-bold ${diffNes > 0 ? "text-forest-700" : diffNes < 0 ? "text-red-600" : "text-muted-foreground"}`}>
                             {diffNes > 0 ? `(+${diffNes} au-dessus)` : diffNes < 0 ? `(${diffNes} en dessous)` : "(= conforme)"}
@@ -684,7 +684,7 @@ export default function CycleDeViePage() {
                     {prev.prevNes !== null ? (
                       <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 text-xs text-blue-800">
                         <span>📊</span>
-                        <span>Prévision basée sur <strong>{prev.source}</strong> : environ <strong>{prev.prevNes} nés</strong> dont <strong>{prev.prevVivants} vivants</strong></span>
+                        <span>Prévision basée sur <strong>{prev.count} mise-bas de {prev.source}</strong> : environ <strong>{prev.prevNes} nés</strong> dont <strong>{prev.prevVivants} vivants</strong></span>
                       </div>
                     ) : (
                       <div className="flex items-center gap-2 bg-earth-50 border border-earth-200 rounded-lg px-3 py-2 text-xs text-muted-foreground">
