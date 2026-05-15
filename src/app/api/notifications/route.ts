@@ -205,32 +205,65 @@ export async function GET() {
       }
     }
 
-    // ── 7. ALERTES ALIMENTATION PAR HEURE ────────────────────────────────
-    const heure = now.getHours();
-    if (heure >= 6 && heure <= 8) {
-      notifications.push({
-        id: "alim_matin",
-        type: "alimentation",
-        priorite: "normale",
-        titre: "🌅 Repas du matin",
-        message: "Distribuez les granulés et renouvelez l'eau fraîche. Vérifiez les lapines allaitantes (granulés à volonté + eau indispensable).",
+    // ── 7. ALERTES ALIMENTATION — basées sur données réelles ─────────────
+    const totalLapins = await prisma.rabbit.count({
+      where: { statut: { in: ["actif", "reproducteur"] } },
+    });
+
+    if (totalLapins > 0) {
+      const heure = now.getHours();
+
+      // Granulés disponibles ?
+      const granules = await prisma.aliment.findFirst({
+        where: { type: { in: ["granules", "granulés", "Granulés"] }, stockActuel: { gt: 0 } },
       });
-    } else if (heure >= 11 && heure <= 13) {
-      notifications.push({
-        id: "alim_midi",
-        type: "alimentation",
-        priorite: "basse",
-        titre: "🥬 Distribution verdure de midi",
-        message: "Distribuez les légumes frais (carotte, chou, persil). Adultes : ~50 g/lapin. Lapereaux sevrés : ~20 g/lapin.",
+
+      // Foin disponible ?
+      const foin = await prisma.aliment.findFirst({
+        where: { type: { in: ["foin", "Foin"] }, stockActuel: { gt: 0 } },
       });
-    } else if (heure >= 17 && heure <= 19) {
-      notifications.push({
-        id: "alim_soir",
-        type: "alimentation",
-        priorite: "normale",
-        titre: "🌙 Repas du soir — foin en abondance",
-        message: "Les lapins sont actifs la nuit : distribuez les granulés du soir et mettez le foin en abondance. Ils consomment 70 % de leur alimentation entre 18h et 6h.",
+
+      // Légumes disponibles ?
+      const legumes = await prisma.aliment.findFirst({
+        where: { type: { in: ["légumes", "legumes", "Légumes", "Fruits & légumes"] }, stockActuel: { gt: 0 } },
       });
+
+      if (heure >= 6 && heure <= 8) {
+        const granuleMsg = granules
+          ? `Granulés disponibles (${granules.stockActuel} ${granules.unite}). Distribuez environ ${(totalLapins * 0.15).toFixed(1)} kg pour vos ${totalLapins} lapins.`
+          : "⚠️ Aucun granulé en stock — réapprovisionnez avant la distribution.";
+        notifications.push({
+          id: "alim_matin",
+          type: "alimentation",
+          priorite: granules ? "normale" : "haute",
+          titre: `🌅 Repas du matin — ${totalLapins} lapin${totalLapins > 1 ? "s" : ""}`,
+          message: `${granuleMsg} Renouvelez l'eau fraîche dans toutes les cages.`,
+        });
+      } else if (heure >= 11 && heure <= 13) {
+        if (legumes) {
+          const qteAdultes = (totalLapins * 0.05).toFixed(2);
+          notifications.push({
+            id: "alim_midi",
+            type: "alimentation",
+            priorite: "basse",
+            titre: `🥬 Distribution verdure — ${totalLapins} lapin${totalLapins > 1 ? "s" : ""}`,
+            message: `Stock légumes disponible : ${legumes.stockActuel} ${legumes.unite} de ${legumes.nom}. Quantité recommandée : ~${qteAdultes} kg pour vos ${totalLapins} lapins actifs.`,
+            alimentNom: legumes.nom,
+          });
+        }
+      } else if (heure >= 17 && heure <= 19) {
+        const foinMsg = foin
+          ? `Foin disponible (${foin.stockActuel} ${foin.unite}). Distribuez environ ${(totalLapins * 0.1).toFixed(1)} kg pour vos ${totalLapins} lapins.`
+          : "⚠️ Aucun foin en stock — les lapins ont besoin de foin à volonté la nuit.";
+        notifications.push({
+          id: "alim_soir",
+          type: "alimentation",
+          priorite: foin ? "normale" : "haute",
+          titre: `🌙 Repas du soir — ${totalLapins} lapin${totalLapins > 1 ? "s" : ""}`,
+          message: foinMsg,
+          alimentNom: foin?.nom,
+        });
+      }
     }
 
     // ── Tri par priorité ──────────────────────────────────────────────────
