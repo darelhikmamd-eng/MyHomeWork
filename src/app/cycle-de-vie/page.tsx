@@ -81,9 +81,9 @@ export default function CycleDeViePage() {
         fetch("/api/rabbits"),
       ]);
       const accs: Accouplement[] = await accRes.json();
-      // Auto-déclencher mise-bas quand la date prévue est atteinte
       const now = new Date();
       for (const acc of accs) {
+        // Auto-déclencher mise-bas quand la date prévue est atteinte
         if (acc.statut === "en_cours" && acc.dateMiseBas && new Date(acc.dateMiseBas) <= now) {
           await fetch(`/api/accouplements/${acc.id}`, {
             method: "PATCH",
@@ -91,6 +91,15 @@ export default function CycleDeViePage() {
             body: JSON.stringify({ statut: "mise_bas" }),
           });
           acc.statut = "mise_bas";
+        }
+        // Corriger si mise_bas enregistrée par erreur alors que la date est encore dans le futur
+        if (acc.statut === "mise_bas" && acc.dateMiseBas && new Date(acc.dateMiseBas) > now) {
+          await fetch(`/api/accouplements/${acc.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ statut: "en_cours" }),
+          });
+          acc.statut = "en_cours";
         }
       }
       setAccouplements(accs);
