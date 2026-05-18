@@ -35,10 +35,10 @@ const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta";
 const NO_FREE_TIER = ["gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-2.0"];
 const GEMINI_PREFERRED = ["gemini-1.5-flash-8b", "gemini-1.5-flash", "gemini-1.5-pro", "gemini-pro-vision"];
 
-async function pickGeminiModel(apiKey: string): Promise<string | null> {
+async function listGeminiModels(apiKey: string): Promise<string[]> {
   try {
     const res = await fetch(`${GEMINI_BASE}/models?key=${apiKey}`);
-    if (!res.ok) return null;
+    if (!res.ok) return [];
     const data = await res.json();
     const available: string[] = (data.models ?? [])
       .filter((m: { supportedGenerationMethods?: string[] }) =>
@@ -46,32 +46,61 @@ async function pickGeminiModel(apiKey: string): Promise<string | null> {
       )
       .map((m: { name: string }) => m.name.replace("models/", ""))
       .filter((n: string) => !NO_FREE_TIER.some((s) => n.startsWith(s)));
+    // Ordonne : préférés d'abord, puis le reste
+    const ordered: string[] = [];
     for (const pref of GEMINI_PREFERRED) {
       const match = available.find((a) => a === pref || a.startsWith(pref));
-      if (match) return match;
+      if (match && !ordered.includes(match)) ordered.push(match);
     }
-    return available[0] ?? null;
-  } catch { return null; }
+    for (const a of available) if (!ordered.includes(a)) ordered.push(a);
+    return ordered;
+  } catch { return []; }
 }
 
 async function callGemini(apiKey: string, parts: object[], textPrompt: string) {
-  const model = await pickGeminiModel(apiKey);
-  if (!model) throw new Error("Aucun modèle Gemini disponible pour cette clé.");
-  console.log("[Diagnostic] Gemini modèle :", model);
-  const res = await fetch(`${GEMINI_BASE}/models/${model}:generateContent?key=${apiKey}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      contents: [{ parts: [...parts, { text: textPrompt }] }],
-      generationConfig: { responseMimeType: "application/json", temperature: 0.2, maxOutputTokens: 2048 },
-    }),
-  });
-  if (!res.ok) {
-    const err = await res.json();
-    throw new Error(err?.error?.message || "Erreur API Gemini");
+  const models = await listGeminiModels(apiKey);
+  if (models.length === 0) throw new Error("Aucun modèle Gemini disponible pour cette clé.");
+
+  let lastError = "";
+  // Essaie chaque modèle dans l'ordre jusqu'à en trouver un disponible
+  for (const model of models) {
+    console.log("[Diagnostic] Gemini tente :", model);
+    try {
+      const res = await fetch(`${GEMINI_BASE}/models/${model}:generateContent?key=${apiKey}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [...parts, { text: textPrompt }] }],
+          generationConfig: { responseMimeType: "application/json", temperature: 0.2, maxOutputTokens: 2048 },
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        lastError = err?.error?.message || `HTTP ${res.status}`;
+        // 503 = surcharge, 429 = quota : on essaie le modèle suivant
+        if (res.status === 503 || res.status === 429) {
+          console.warn(`[Diagnostic] ${model} indisponible (${res.status}), essai du modèle suivant...`);
+          continue;
+        }
+        // Autre erreur (clé invalide, etc.) : on arrête
+        throw new Error(lastError);
+      }
+
+      const data = await res.json();
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (text) return text;
+      lastError = "Réponse vide du modèle";
+    } catch (e) {
+      lastError = e instanceof Error ? e.message : "Erreur inconnue";
+      // Réseau ou parsing : on tente le suivant
+    }
   }
-  const data = await res.json();
-  return data.candidates?.[0]?.content?.parts?.[0]?.text ?? null;
+
+  throw new Error(
+    `Tous les modèles Gemini sont indisponibles (${lastError}). ` +
+    `Ajoutez GROQ_API_KEY (gratuit sur console.groq.com) pour une meilleure disponibilité.`
+  );
 }
 
 const SYSTEM_PROMPT = `Tu es un vétérinaire expert en cuniculture (élevage de lapins) avec 20 ans d'expérience. 
