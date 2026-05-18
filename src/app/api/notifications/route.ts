@@ -266,11 +266,20 @@ export async function GET() {
       }
     }
 
+    // ── Filtrer les tickets déjà résolus (système GLPI-like) ─────────────
+    const ids = notifications.map((n) => n.id);
+    const resolvedTickets = await prisma.notificationTicket.findMany({
+      where: { notificationId: { in: ids }, status: "resolved" },
+      select: { notificationId: true },
+    });
+    const resolvedSet = new Set(resolvedTickets.map((t) => t.notificationId));
+    const active = notifications.filter((n) => !resolvedSet.has(n.id));
+
     // ── Tri par priorité ──────────────────────────────────────────────────
     const ordre: Record<string, number> = { haute: 0, normale: 1, basse: 2 };
-    notifications.sort((a, b) => ordre[a.priorite] - ordre[b.priorite]);
+    active.sort((a, b) => ordre[a.priorite] - ordre[b.priorite]);
 
-    return NextResponse.json({ notifications, count: notifications.length });
+    return NextResponse.json({ notifications: active, count: active.length });
   } catch (err) {
     console.error(err);
     return NextResponse.json({ notifications: [], count: 0 });

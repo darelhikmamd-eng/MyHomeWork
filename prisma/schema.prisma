@@ -118,6 +118,28 @@ model DistributionAliment {
   aliment    Aliment  @relation(fields: [alimentId], references: [id])
 }
 
+model NotificationTicket {
+  id              String   @id @default(cuid())
+  notificationId  String   @unique // ID stable de la notification calculée (ex: "mise_bas_clxxxx")
+  type            String   // "mise_bas" | "saillie" | "stock_bas" | ...
+  titre           String
+  message         String
+  priorite        String   // "haute" | "normale" | "basse"
+  status          String   @default("resolved") // "resolved" | "reopened"
+  resolutionNote  String?
+  resolvedAt      DateTime @default(now())
+  reopenedAt      DateTime?
+  rabbitId        String?
+  rabbitName      String?
+  alimentNom      String?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([notificationId])
+  @@index([status])
+}
+
 model Transaction {
   id          String   @id @default(cuid())
   type        String   // "depense" | "recette"
