@@ -7,6 +7,15 @@ import { AddRabbitForm } from "@/components/forms/add-rabbit-form";
 import { EditRabbitForm } from "@/components/forms/edit-rabbit-form";
 import { cn } from "@/lib/utils";
 
+interface ReproductionInfo {
+  maxFemelles: number;
+  nbFemellesDistinctes: number;
+  nbAccouplements: number;
+  nbPortees: number;
+  quotaAtteint: boolean;
+  placesRestantes: number;
+}
+
 interface Rabbit {
   id: string;
   name: string;
@@ -19,6 +28,7 @@ interface Rabbit {
   statut: string;
   cageNumero: string | null;
   notes: string | null;
+  reproduction?: ReproductionInfo | null;
 }
 
 // races est maintenant calculé dynamiquement depuis les données réelles
@@ -241,10 +251,18 @@ export default function InventairePage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-earth-50">
-              {filtered.map((rabbit) => (
+              {filtered.map((rabbit) => {
+                const quotaAtteint = rabbit.sexe === "male" && rabbit.reproduction?.quotaAtteint === true;
+                return (
                 <tr
                   key={rabbit.id}
-                  className="hover:bg-cream-50 transition-colors cursor-pointer"
+                  className={cn(
+                    "transition-colors cursor-pointer",
+                    quotaAtteint
+                      ? "bg-red-50 hover:bg-red-100 border-l-4 border-l-red-500"
+                      : "hover:bg-cream-50"
+                  )}
+                  title={quotaAtteint ? `⚠️ Quota atteint : ${rabbit.reproduction?.nbFemellesDistinctes}/${rabbit.reproduction?.maxFemelles} femelles` : undefined}
                 >
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
@@ -301,7 +319,8 @@ export default function InventairePage() {
                     <EditRabbitForm rabbit={rabbit} onSuccess={fetchRabbits} />
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>

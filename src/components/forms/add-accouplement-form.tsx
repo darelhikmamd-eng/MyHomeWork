@@ -15,12 +15,22 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
+interface ReproductionInfo {
+  maxFemelles: number;
+  nbFemellesDistinctes: number;
+  nbAccouplements: number;
+  nbPortees: number;
+  quotaAtteint: boolean;
+  placesRestantes: number;
+}
+
 interface Rabbit {
   id: string;
   name: string;
   identifiant: string;
   sexe: string;
   race: string;
+  reproduction?: ReproductionInfo | null;
 }
 
 interface AddAccouplementFormProps {
@@ -42,6 +52,11 @@ export function AddAccouplementForm({ rabbits, onSuccess }: AddAccouplementFormP
 
   const males = rabbits.filter((r) => r.sexe === "male");
   const femelles = rabbits.filter((r) => r.sexe === "femelle");
+
+  const selectedMale = males.find((m) => m.id === form.pereId);
+  const maleQuotaAtteint = selectedMale?.reproduction?.quotaAtteint === true;
+  // Si le quota est atteint, on n'autorise que les femelles déjà accouplées à ce mâle.
+  // ⚠️ Le serveur valide aussi cette règle (cf. POST /api/accouplements).
 
   const field = (key: keyof typeof form) => (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
@@ -101,14 +116,26 @@ export function AddAccouplementForm({ rabbits, onSuccess }: AddAccouplementFormP
             <Label htmlFor="pereId">Père (mâle) *</Label>
             <Select id="pereId" value={form.pereId} onChange={field("pereId")} required>
               <option value="">-- Choisir un mâle --</option>
-              {males.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.name} ({r.identifiant}) — {r.race}
-                </option>
-              ))}
+              {males.map((r) => {
+                const repro = r.reproduction;
+                const quota = repro
+                  ? ` — ${repro.nbFemellesDistinctes}/${repro.maxFemelles} femelles${repro.quotaAtteint ? " ⛔ QUOTA ATTEINT" : ""}`
+                  : "";
+                return (
+                  <option key={r.id} value={r.id}>
+                    {r.name} ({r.identifiant}) — {r.race}{quota}
+                  </option>
+                );
+              })}
             </Select>
             {males.length === 0 && (
               <p className="text-xs text-amber-600">Aucun mâle enregistré. Ajoutez d&apos;abord un lapin mâle.</p>
+            )}
+            {maleQuotaAtteint && (
+              <p className="text-xs font-medium text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                ⚠️ Ce mâle a déjà atteint le quota de {selectedMale?.reproduction?.maxFemelles} femelles distinctes.
+                Vous ne pouvez plus l’accoupler qu’avec une femelle déjà enregistrée dans ses portées.
+              </p>
             )}
           </div>
 

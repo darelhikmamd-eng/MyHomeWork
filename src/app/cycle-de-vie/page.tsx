@@ -9,14 +9,17 @@ import {
   CheckCircle2,
   Clock,
   AlertCircle,
+  AlertTriangle,
   Trash2,
   X,
   Plus,
   Baby,
+  Users,
 } from "lucide-react";
 import { AddAccouplementForm } from "@/components/forms/add-accouplement-form";
 import { formatDate } from "@/lib/utils";
 import { cn } from "@/lib/utils";
+import { MAX_FEMELLES_PAR_MALE } from "@/lib/reproduction";
 
 interface RabbitRef {
   id: string;
@@ -46,6 +49,7 @@ const steps = [
   { id: "gestation", label: "Gestation", icon: Clock, color: "text-amber-600", bg: "bg-amber-100" },
   { id: "mise_bas", label: "Mise-bas", icon: Heart, color: "text-forest-600", bg: "bg-forest-100" },
   { id: "sevrage", label: "Sevrage", icon: Milk, color: "text-sage-600", bg: "bg-sage-100" },
+  { id: "peres", label: "Suivi pères", icon: Users, color: "text-blue-600", bg: "bg-blue-100" },
 ];
 
 const statutConfig = {
@@ -842,6 +846,230 @@ export default function CycleDeViePage() {
           </div>
         </div>
       )}
+
+      {/* VUE SUIVI PÈRES */}
+      {activeStep === "peres" && (() => {
+        // Regroupement des accouplements par père
+        const peres = rabbits.filter((r) => r.sexe === "male");
+        const accsByPere = new Map<string, Accouplement[]>();
+        for (const a of accouplements) {
+          const list = accsByPere.get(a.pereId) ?? [];
+          list.push(a);
+          accsByPere.set(a.pereId, list);
+        }
+
+        const peresStats = peres
+          .map((p) => {
+            const list = (accsByPere.get(p.id) ?? []).sort(
+              (a, b) =>
+                new Date(a.dateAccouplement).getTime() -
+                new Date(b.dateAccouplement).getTime()
+            );
+            const femelles = Array.from(new Set(list.map((a) => a.mereId)));
+            const portees = list.filter(
+              (a) => a.statut === "mise_bas" || a.statut === "sevrage"
+            );
+            const totalNes = portees.reduce((s, a) => s + (a.nombreNes ?? 0), 0);
+            const totalVivants = portees.reduce(
+              (s, a) => s + (a.nombreVivants ?? 0),
+              0
+            );
+            return {
+              pere: p,
+              accs: list,
+              nbFemelles: femelles.length,
+              nbPortees: portees.length,
+              totalNes,
+              totalVivants,
+              quotaAtteint: femelles.length >= MAX_FEMELLES_PAR_MALE,
+            };
+          })
+          .sort((a, b) => b.nbFemelles - a.nbFemelles);
+
+        const nbAlerte = peresStats.filter((s) => s.quotaAtteint).length;
+
+        return (
+          <div className="space-y-4">
+            <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
+              <Users className="h-4 w-4 text-blue-600" />
+              Suivi des pères et générations ({peresStats.length})
+            </h2>
+
+            {/* Bandeau d'alerte global */}
+            {nbAlerte > 0 && (
+              <div className="bg-red-50 border-2 border-red-300 rounded-xl p-4 flex items-start gap-3">
+                <AlertTriangle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-semibold text-red-700">
+                    {nbAlerte} mâle{nbAlerte > 1 ? "s" : ""} en alerte : quota de {MAX_FEMELLES_PAR_MALE} femelles atteint
+                  </p>
+                  <p className="text-sm text-red-600 mt-0.5">
+                    Aucun nouvel accouplement avec une nouvelle femelle ne peut être enregistré pour ces mâles.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {peresStats.length === 0 && (
+              <div className="text-center py-12 bg-white rounded-xl border border-earth-100">
+                <Users className="h-10 w-10 text-earth-300 mx-auto mb-3" />
+                <p className="text-muted-foreground">Aucun mâle enregistré</p>
+              </div>
+            )}
+
+            {peresStats.map(({ pere, accs, nbFemelles, nbPortees, totalNes, totalVivants, quotaAtteint }) => {
+              const pct = Math.min(100, Math.round((nbFemelles / MAX_FEMELLES_PAR_MALE) * 100));
+              return (
+                <div
+                  key={pere.id}
+                  className={cn(
+                    "rounded-xl border-2 shadow-sm overflow-hidden",
+                    quotaAtteint
+                      ? "border-red-500 bg-red-50 ring-2 ring-red-200"
+                      : nbFemelles >= MAX_FEMELLES_PAR_MALE - 2
+                      ? "border-amber-300 bg-amber-50"
+                      : "border-earth-100 bg-white"
+                  )}
+                >
+                  {quotaAtteint && (
+                    <div className="bg-red-600 text-white text-sm font-semibold px-4 py-2 flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4" />
+                      ⚠️ QUOTA ATTEINT — {nbFemelles}/{MAX_FEMELLES_PAR_MALE} femelles. Reproduction bloquée pour ce mâle.
+                    </div>
+                  )}
+
+                  <div className="p-5 space-y-4">
+                    {/* En-tête mâle */}
+                    <div className="flex items-center justify-between flex-wrap gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className={cn(
+                          "w-12 h-12 rounded-full flex items-center justify-center text-2xl",
+                          quotaAtteint ? "bg-red-200" : "bg-blue-100"
+                        )}>
+                          🐇
+                        </div>
+                        <div>
+                          <p className={cn("font-bold text-base", quotaAtteint && "text-red-700")}>
+                            {pere.name}
+                          </p>
+                          <p className="text-xs text-muted-foreground font-mono">
+                            {pere.identifiant} · {pere.race}
+                          </p>
+                        </div>
+                      </div>
+                      <span
+                        className={cn(
+                          "text-xs font-bold px-3 py-1.5 rounded-full border",
+                          quotaAtteint
+                            ? "bg-red-100 text-red-700 border-red-300"
+                            : "bg-blue-100 text-blue-700 border-blue-200"
+                        )}
+                      >
+                        {nbFemelles}/{MAX_FEMELLES_PAR_MALE} femelles
+                      </span>
+                    </div>
+
+                    {/* Stats */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      <div className="bg-white rounded-lg p-3 border border-earth-100">
+                        <p className="text-xs text-muted-foreground mb-0.5">Femelles distinctes</p>
+                        <p className={cn("text-xl font-bold", quotaAtteint ? "text-red-700" : "text-foreground")}>
+                          {nbFemelles}
+                        </p>
+                      </div>
+                      <div className="bg-white rounded-lg p-3 border border-earth-100">
+                        <p className="text-xs text-muted-foreground mb-0.5">Générations (portées)</p>
+                        <p className="text-xl font-bold text-forest-700">{nbPortees}</p>
+                      </div>
+                      <div className="bg-white rounded-lg p-3 border border-earth-100">
+                        <p className="text-xs text-muted-foreground mb-0.5">Total nés</p>
+                        <p className="text-xl font-bold text-foreground">{totalNes}</p>
+                      </div>
+                      <div className="bg-white rounded-lg p-3 border border-earth-100">
+                        <p className="text-xs text-muted-foreground mb-0.5">Total vivants</p>
+                        <p className="text-xl font-bold text-forest-700">{totalVivants}</p>
+                      </div>
+                    </div>
+
+                    {/* Barre de progression du quota */}
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between text-xs">
+                        <span className="text-muted-foreground">Utilisation du quota femelles</span>
+                        <span className={cn("font-semibold", quotaAtteint ? "text-red-700" : "text-muted-foreground")}>
+                          {pct}%
+                        </span>
+                      </div>
+                      <div className="h-2.5 bg-earth-100 rounded-full overflow-hidden">
+                        <div
+                          className={cn(
+                            "h-full rounded-full transition-all",
+                            quotaAtteint
+                              ? "bg-red-500"
+                              : nbFemelles >= MAX_FEMELLES_PAR_MALE - 2
+                              ? "bg-amber-500"
+                              : "bg-blue-500"
+                          )}
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Liste des générations */}
+                    <div>
+                      <p className="text-sm font-semibold text-foreground mb-2 flex items-center gap-1.5">
+                        <Baby className="h-4 w-4 text-pink-500" />
+                        Suivi des générations ({accs.length})
+                      </p>
+                      {accs.length === 0 ? (
+                        <p className="text-xs text-muted-foreground italic">Aucun accouplement enregistré.</p>
+                      ) : (
+                        <div className="bg-white rounded-lg border border-earth-100 overflow-hidden">
+                          <table className="w-full text-xs">
+                            <thead className="bg-cream-50 border-b border-earth-100">
+                              <tr>
+                                <th className="text-left px-3 py-2 font-semibold text-muted-foreground">Gén.</th>
+                                <th className="text-left px-3 py-2 font-semibold text-muted-foreground">Femelle</th>
+                                <th className="text-left px-3 py-2 font-semibold text-muted-foreground">Date acc.</th>
+                                <th className="text-left px-3 py-2 font-semibold text-muted-foreground">Mise-bas</th>
+                                <th className="text-left px-3 py-2 font-semibold text-muted-foreground">Statut</th>
+                                <th className="text-right px-3 py-2 font-semibold text-muted-foreground">Nés / Vivants</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-earth-50">
+                              {accs.map((a, idx) => {
+                                const conf = statutConfig[a.statut as keyof typeof statutConfig] ?? statutConfig.en_cours;
+                                return (
+                                  <tr key={a.id} className="hover:bg-cream-50">
+                                    <td className="px-3 py-2 font-bold text-blue-700">G{idx + 1}</td>
+                                    <td className="px-3 py-2">
+                                      <span className="font-medium">{a.mere?.name ?? "?"}</span>
+                                      <span className="text-muted-foreground font-mono ml-1">({a.mere?.identifiant ?? "?"})</span>
+                                    </td>
+                                    <td className="px-3 py-2 text-muted-foreground">{formatDate(a.dateAccouplement)}</td>
+                                    <td className="px-3 py-2 text-muted-foreground">{a.dateMiseBas ? formatDate(a.dateMiseBas) : "—"}</td>
+                                    <td className="px-3 py-2">
+                                      <span className={cn("text-[10px] font-medium px-2 py-0.5 rounded-full border", conf.color)}>
+                                        {conf.label}
+                                      </span>
+                                    </td>
+                                    <td className="px-3 py-2 text-right font-semibold">
+                                      {a.nombreNes !== null ? `${a.nombreVivants ?? 0} / ${a.nombreNes}` : "—"}
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        );
+      })()}
 
     </div>
   );

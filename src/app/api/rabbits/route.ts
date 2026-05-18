@@ -1,12 +1,51 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { MAX_FEMELLES_PAR_MALE } from "@/lib/reproduction";
 
 export async function GET() {
   try {
     const rabbits = await prisma.rabbit.findMany({
       orderBy: { createdAt: "desc" },
+      include: {
+        accouplementsMale: {
+          select: { mereId: true, statut: true },
+        },
+      },
     });
-    return NextResponse.json(rabbits);
+
+    const enriched = rabbits.map((r) => {
+      if (r.sexe !== "male") {
+        // On retire la relation pour ne pas alourdir la réponse
+        const { accouplementsMale: _ignore, ...rest } = r;
+        void _ignore;
+        return {
+          ...rest,
+          reproduction: null,
+        };
+      }
+      const accs = r.accouplementsMale ?? [];
+      const femelles = Array.from(new Set(accs.map((a) => a.mereId)));
+      const nbPortees = accs.filter(
+        (a) => a.statut === "mise_bas" || a.statut === "sevrage"
+      ).length;
+      const nbFemelles = femelles.length;
+      const quotaAtteint = nbFemelles >= MAX_FEMELLES_PAR_MALE;
+      const { accouplementsMale: _omit, ...rest } = r;
+      void _omit;
+      return {
+        ...rest,
+        reproduction: {
+          maxFemelles: MAX_FEMELLES_PAR_MALE,
+          nbFemellesDistinctes: nbFemelles,
+          nbAccouplements: accs.length,
+          nbPortees,
+          quotaAtteint,
+          placesRestantes: Math.max(0, MAX_FEMELLES_PAR_MALE - nbFemelles),
+        },
+      };
+    });
+
+    return NextResponse.json(enriched);
   } catch {
     return NextResponse.json({ error: "Erreur lors de la récupération des lapins" }, { status: 500 });
   }

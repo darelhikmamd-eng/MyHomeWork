@@ -1,7 +1,16 @@
 import { calculateAge, formatDate } from "@/lib/utils";
-import { Weight, Calendar, Home, Tag } from "lucide-react";
+import { Weight, Calendar, Home, Tag, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { EditRabbitForm } from "@/components/forms/edit-rabbit-form";
+
+interface ReproductionInfo {
+  maxFemelles: number;
+  nbFemellesDistinctes: number;
+  nbAccouplements: number;
+  nbPortees: number;
+  quotaAtteint: boolean;
+  placesRestantes: number;
+}
 
 interface Rabbit {
   id: string;
@@ -15,6 +24,7 @@ interface Rabbit {
   cageNumero: string | null;
   dateNaissance: string | null;
   notes: string | null;
+  reproduction?: ReproductionInfo | null;
 }
 
 const statusConfig = {
@@ -45,15 +55,32 @@ export function RabbitCard({ rabbit, onClick, onUpdate }: RabbitCardProps) {
   const status = statusConfig[rabbit.statut as keyof typeof statusConfig] ?? statusConfig.actif;
   const sexe = sexeConfig[rabbit.sexe as keyof typeof sexeConfig] ?? sexeConfig.femelle;
   const gradientClass = raceColors[rabbit.race] || "from-cream-100 to-cream-50";
+  const quotaAtteint = rabbit.sexe === "male" && rabbit.reproduction?.quotaAtteint === true;
 
   return (
     <div
       onClick={onClick}
       className={cn(
-        "bg-white rounded-xl border border-earth-100 overflow-hidden shadow-sm hover:shadow-md transition-all cursor-pointer hover:-translate-y-0.5",
-        "flex flex-col"
+        "bg-white rounded-xl border overflow-hidden shadow-sm hover:shadow-md transition-all cursor-pointer hover:-translate-y-0.5",
+        "flex flex-col",
+        quotaAtteint
+          ? "border-red-500 ring-2 ring-red-300 bg-red-50"
+          : "border-earth-100"
       )}
+      title={
+        quotaAtteint
+          ? `⚠️ Quota atteint : ${rabbit.reproduction?.nbFemellesDistinctes}/${rabbit.reproduction?.maxFemelles} femelles. Ce mâle ne peut plus être accouplé à une nouvelle femelle.`
+          : undefined
+      }
     >
+      {quotaAtteint && (
+        <div className="bg-red-600 text-white text-[11px] font-semibold px-3 py-1.5 flex items-center gap-1.5">
+          <AlertTriangle className="h-3.5 w-3.5" />
+          <span>
+            Quota atteint : {rabbit.reproduction?.nbFemellesDistinctes}/{rabbit.reproduction?.maxFemelles} femelles — reproduction bloquée
+          </span>
+        </div>
+      )}
       {/* Header with color gradient */}
       <div
         className={cn(
@@ -97,6 +124,24 @@ export function RabbitCard({ rabbit, onClick, onUpdate }: RabbitCardProps) {
             {rabbit.identifiant}
           </p>
         </div>
+
+        {rabbit.sexe === "male" && rabbit.reproduction && (
+          <div
+            className={cn(
+              "text-xs rounded-lg px-2.5 py-1.5 border flex items-center justify-between gap-2",
+              quotaAtteint
+                ? "bg-red-100 border-red-300 text-red-700"
+                : rabbit.reproduction.placesRestantes <= 2
+                ? "bg-amber-50 border-amber-200 text-amber-700"
+                : "bg-cream-50 border-earth-100 text-muted-foreground"
+            )}
+          >
+            <span className="font-medium">Femelles affectées</span>
+            <span className="font-bold">
+              {rabbit.reproduction.nbFemellesDistinctes}/{rabbit.reproduction.maxFemelles}
+            </span>
+          </div>
+        )}
 
         <div className="space-y-1.5">
           <div className="flex items-center gap-2 text-xs text-muted-foreground">

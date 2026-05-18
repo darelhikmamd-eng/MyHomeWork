@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { addDays } from "@/lib/utils";
+import { MAX_FEMELLES_PAR_MALE } from "@/lib/reproduction";
 
 // Cast needed while Prisma IDE types are stale (dateMiseBas renamed from dateGestation)
 type WithDateMiseBas<T> = Omit<T, "dateGestation"> & { dateMiseBas: Date | null };
@@ -27,6 +28,23 @@ export async function POST(req: NextRequest) {
 
     if (!pereId || !mereId || !dateAccouplement) {
       return NextResponse.json({ error: "Champs obligatoires manquants" }, { status: 400 });
+    }
+
+    // Contrôle métier : un mâle ne peut pas être accouplé à plus de
+    // MAX_FEMELLES_PAR_MALE femelles distinctes.
+    const accouplementsDuPere = await prisma.accouplement.findMany({
+      where: { pereId },
+      select: { mereId: true },
+    });
+    const femellesDistinctes = new Set(accouplementsDuPere.map((a) => a.mereId));
+    if (!femellesDistinctes.has(mereId) && femellesDistinctes.size >= MAX_FEMELLES_PAR_MALE) {
+      return NextResponse.json(
+        {
+          error: `Quota atteint : ce mâle est déjà accouplé à ${femellesDistinctes.size} femelles distinctes (maximum autorisé : ${MAX_FEMELLES_PAR_MALE}).`,
+          code: "QUOTA_FEMELLES_ATTEINT",
+        },
+        { status: 409 }
+      );
     }
 
     const dateAcc = new Date(dateAccouplement);
