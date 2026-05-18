@@ -16,6 +16,7 @@ import {
   Euro,
   Bell,
   Brain,
+  Sun,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
@@ -65,6 +66,11 @@ const navItems = [
     href: "/notifications",
     label: "Notifications",
     icon: Bell,
+  },
+  {
+    href: "/saisons",
+    label: "Gestion saisonnière",
+    icon: Sun,
   },
 ];
 
