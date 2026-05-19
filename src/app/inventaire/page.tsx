@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Search, Filter, Grid3X3, List, Loader2 } from "lucide-react";
+import { Search, Filter, Grid3X3, List, Loader2, Download, Printer, X } from "lucide-react";
 import { RabbitCard } from "@/components/rabbits/rabbit-card";
 import { AddRabbitForm } from "@/components/forms/add-rabbit-form";
 import { EditRabbitForm } from "@/components/forms/edit-rabbit-form";
@@ -50,6 +50,7 @@ export default function InventairePage() {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [rabbits, setRabbits] = useState<Rabbit[]>([]);
   const [loadingData, setLoadingData] = useState(true);
+  const [fichePrint, setFichePrint] = useState<Rabbit | null>(null);
 
   const fetchRabbits = useCallback(async () => {
     setLoadingData(true);
@@ -67,6 +68,29 @@ export default function InventairePage() {
   useEffect(() => { fetchRabbits(); }, [fetchRabbits]);
 
   const races = ["Toutes", ...Array.from(new Set(rabbits.map((r) => r.race))).sort()];
+
+  function exportCSV() {
+    const headers = ["Nom", "Identifiant", "Race", "Sexe", "Date naissance", "Poids (kg)", "Statut", "Cage", "Notes"];
+    const rows = filtered.map((r) => [
+      r.name,
+      r.identifiant,
+      r.race,
+      r.sexe === "male" ? "Mâle" : "Femelle",
+      r.dateNaissance ? new Date(r.dateNaissance).toLocaleDateString("fr-FR") : "",
+      r.poids ?? "",
+      r.statut,
+      r.cageNumero ?? "",
+      r.notes ?? "",
+    ]);
+    const csv = [headers, ...rows].map((row) => row.map(String).map((v) => `"${v.replace(/"/g, '""')}"`).join(";")).join("\n");
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `cunigestion_inventaire_${new Date().toISOString().split("T")[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
 
   const filtered = rabbits.filter((r) => {
     const matchSearch =
@@ -88,8 +112,64 @@ export default function InventairePage() {
             {loadingData ? "Chargement..." : `${filtered.length} lapin${filtered.length > 1 ? "s" : ""} trouvé${filtered.length > 1 ? "s" : ""}`}
           </p>
         </div>
-        <AddRabbitForm onSuccess={fetchRabbits} />
+        <div className="flex items-center gap-2">
+          <button
+            onClick={exportCSV}
+            disabled={filtered.length === 0}
+            className="inline-flex items-center gap-2 text-sm font-medium px-3 py-2 border border-earth-200 rounded-lg bg-white hover:bg-earth-50 transition-colors disabled:opacity-40"
+            title="Exporter la liste filtrée en CSV"
+          >
+            <Download className="h-4 w-4 text-forest-600" />
+            <span className="hidden sm:inline">CSV</span>
+          </button>
+          <AddRabbitForm onSuccess={fetchRabbits} />
+        </div>
       </div>
+
+      {/* Modal fiche cage imprimable */}
+      {fichePrint && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 print:hidden" onClick={() => setFichePrint(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-4 border-b border-earth-100">
+              <h2 className="font-bold text-base">Fiche cage — {fichePrint.name}</h2>
+              <button onClick={() => setFichePrint(null)} className="p-1 rounded-lg hover:bg-earth-100"><X className="h-4 w-4" /></button>
+            </div>
+            <div id="fiche-cage-print" className="p-5 space-y-3">
+              <div className="flex items-start gap-4">
+                <img
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(`CUNI:${fichePrint.identifiant}:${fichePrint.name}:${fichePrint.cageNumero ?? ""}`)}`}
+                  alt="QR Code"
+                  className="w-24 h-24 border border-earth-100 rounded-lg flex-shrink-0"
+                />
+                <div className="space-y-1 text-sm">
+                  <p className="text-lg font-bold">{fichePrint.name}</p>
+                  <p className="font-mono text-xs text-muted-foreground">{fichePrint.identifiant}</p>
+                  <p className="text-muted-foreground">{fichePrint.race} — {fichePrint.sexe === "male" ? "♂ Mâle" : "♀ Femelle"}</p>
+                  {fichePrint.cageNumero && <p className="font-semibold">Cage : {fichePrint.cageNumero}</p>}
+                  {fichePrint.poids && <p>Poids : {fichePrint.poids} kg</p>}
+                  {fichePrint.dateNaissance && <p>Né(e) : {new Date(fichePrint.dateNaissance).toLocaleDateString("fr-FR")}</p>}
+                  <p>État : <span className="font-semibold capitalize">{fichePrint.statut}</span></p>
+                </div>
+              </div>
+              {fichePrint.notes && (
+                <div className="bg-cream-50 border border-earth-100 rounded-lg px-3 py-2 text-xs text-muted-foreground">
+                  {fichePrint.notes}
+                </div>
+              )}
+              <p className="text-[9px] text-muted-foreground text-center pt-1">Cunigestion — {new Date().toLocaleDateString("fr-FR")}</p>
+            </div>
+            <div className="p-4 border-t border-earth-100 flex justify-end gap-2">
+              <button onClick={() => setFichePrint(null)} className="text-sm px-4 py-2 border border-earth-200 rounded-lg hover:bg-earth-50">Fermer</button>
+              <button
+                onClick={() => window.print()}
+                className="text-sm inline-flex items-center gap-2 px-4 py-2 bg-forest-600 text-white rounded-lg hover:bg-forest-700"
+              >
+                <Printer className="h-4 w-4" />Imprimer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="bg-white rounded-xl border border-earth-100 p-4 shadow-sm space-y-3">
@@ -218,7 +298,16 @@ export default function InventairePage() {
       ) : viewMode === "grid" ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {filtered.map((rabbit) => (
-            <RabbitCard key={rabbit.id} rabbit={rabbit} onUpdate={fetchRabbits} />
+            <div key={rabbit.id} className="relative group">
+              <RabbitCard rabbit={rabbit} onUpdate={fetchRabbits} />
+              <button
+                onClick={() => setFichePrint(rabbit)}
+                className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity p-1.5 bg-white border border-earth-200 rounded-lg shadow-sm hover:bg-earth-50"
+                title="Fiche cage imprimable"
+              >
+                <Printer className="h-3.5 w-3.5 text-muted-foreground" />
+              </button>
+            </div>
           ))}
         </div>
       ) : (
@@ -316,7 +405,16 @@ export default function InventairePage() {
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    <EditRabbitForm rabbit={rabbit} onSuccess={fetchRabbits} />
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => setFichePrint(rabbit)}
+                        className="p-1.5 rounded-lg hover:bg-earth-50 text-muted-foreground hover:text-forest-600"
+                        title="Fiche cage"
+                      >
+                        <Printer className="h-3.5 w-3.5" />
+                      </button>
+                      <EditRabbitForm rabbit={rabbit} onSuccess={fetchRabbits} />
+                    </div>
                   </td>
                 </tr>
                 );

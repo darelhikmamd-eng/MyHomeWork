@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import type { PoidsLog } from "@prisma/client";
 
 // Transitional type: Prisma IDE cache may still show "dateGestation"
 // but the actual DB column is "dateMiseBas" after schema migration.
@@ -22,9 +23,11 @@ const COLORS = [
 
 export async function GET() {
   try {
-    const [allRabbits, rawAccouplements] = await Promise.all([
+    const [allRabbits, rawAccouplements, allPoidsLogs, allTransactions] = await Promise.all([
       prisma.rabbit.findMany(),
       prisma.accouplement.findMany({ orderBy: { createdAt: "desc" } }),
+      prisma.poidsLog.findMany({ orderBy: { date: "asc" } }) as Promise<PoidsLog[]>,
+      prisma.transaction.findMany(),
     ]);
     const allAccouplements = rawAccouplements as unknown as AccouplementRow[];
 
@@ -112,6 +115,67 @@ export async function GET() {
           })()
         : "—";
 
+    // ── Mortalité segmentée (GTE) ────────────────────────────────────────────
+    const toutesPortees = allAccouplements.filter(
+      (a) => a.statut === "mise_bas" || a.statut === "sevrage"
+    );
+    const totalNesPortees = toutesPortees.reduce((s, a) => s + (a.nombreNes ?? 0), 0);
+    const totalVivantsPortees = toutesPortees.reduce((s, a) => s + (a.nombreVivants ?? 0), 0);
+    const mortsNes = toutesPortees.reduce(
+      (s, a) => s + Math.max(0, (a.nombreNes ?? 0) - (a.nombreVivants ?? 0)),
+      0
+    );
+    // Pour la mortalité sous la mère on compare mise_bas (nombreVivants à la naissance) vs sevrage
+    const porteesMiseBas = allAccouplements.filter((a) => a.statut === "mise_bas");
+    const porteesSevrages = allAccouplements.filter((a) => a.statut === "sevrage");
+    const vivantsNaissanceSevrage = porteesMiseBas.reduce((s, a) => s + (a.nombreVivants ?? 0), 0);
+    const vivantsApresSevrageTotal = porteesSevrages.reduce((s, a) => s + (a.nombreVivants ?? 0), 0);
+    // Taux de mortalité segmenté
+    const tauxMortNes = totalNesPortees > 0 ? ((mortsNes / totalNesPortees) * 100).toFixed(1) : "0";
+    const tauxMortAdultes = total > 0 ? ((decedes / total) * 100).toFixed(1) : "0";
+
+    // ── GMQ moyen depuis les pesées ──────────────────────────────────────────
+    // Regroupe les pesées par lapin et calcule la progression
+    const poidsParLapin: Record<string, PoidsLog[]> = {};
+    for (const p of allPoidsLogs) {
+      if (!poidsParLapin[p.rabbitId]) poidsParLapin[p.rabbitId] = [];
+      poidsParLapin[p.rabbitId].push(p);
+    }
+    const gmqValues: number[] = [];
+    for (const logs of Object.values(poidsParLapin)) {
+      if (logs.length < 2) continue;
+      const sorted = [...logs].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      const first = sorted[0];
+      const last = sorted[sorted.length - 1];
+      const jours = (new Date(last.date).getTime() - new Date(first.date).getTime()) / 86400000;
+      if (jours > 0) {
+        const gmq = ((last.poids - first.poids) * 1000) / jours; // en grammes/jour
+        if (gmq > 0) gmqValues.push(gmq);
+      }
+    }
+    const gmqMoyen =
+      gmqValues.length > 0
+        ? (gmqValues.reduce((s, v) => s + v, 0) / gmqValues.length).toFixed(0) + " g/j"
+        : "—";
+
+    // ── Marge sur coût alimentaire ────────────────────────────────────────────
+    const depensesAlim = allTransactions
+      .filter((t) => t.type === "depense" && t.categorie === "alimentation")
+      .reduce((s, t) => s + t.montant, 0);
+    const recettesVente = allTransactions
+      .filter((t) => t.type === "recette" && (t.categorie === "vente_lapin" || t.categorie === "vente_viande"))
+      .reduce((s, t) => s + t.montant, 0);
+    const margeAlimentaire = recettesVente - depensesAlim;
+
+    // ── Lapins actifs reproducteurs femelles pour marge/femelle/an ───────────
+    const nbFemellesRepro = allRabbits.filter(
+      (r) => r.sexe === "femelle" && r.statut === "reproducteur"
+    ).length;
+    const margeParFemelle =
+      nbFemellesRepro > 0
+        ? Math.round(margeAlimentaire / nbFemellesRepro).toLocaleString("fr-FR") + " FCFA"
+        : "—";
+
     // ── Reproduction mensuelle (12 derniers mois) ───────────────────────────
     const now = new Date();
     const monthlyMap: Record<string, { portees: number; lapereaux: number }> = {};
@@ -151,6 +215,28 @@ export async function GET() {
         totalAccouplements: allAccouplements.length,
       },
       reproductionData,
+      gte: {
+        mortaliteSegmentee: {
+          mortsNes: Number(tauxMortNes),
+          sousLaMere: totalNesPortees > 0
+            ? Number(((totalNesPortees - totalVivantsPortees - mortsNes) / totalNesPortees * 100).toFixed(1))
+            : 0,
+          adultes: Number(tauxMortAdultes),
+          totalMortsPortees: totalNesPortees - totalVivantsPortees,
+          totalNes: totalNesPortees,
+          normeProf: 2.87,
+        },
+        gmqMoyen,
+        nbPesees: allPoidsLogs.length,
+        margeAlimentaire: {
+          valeur: Math.round(margeAlimentaire),
+          recettesVente: Math.round(recettesVente),
+          depensesAlim: Math.round(depensesAlim),
+          parFemelle: margeParFemelle,
+          nbFemellesRepro,
+          positif: margeAlimentaire >= 0,
+        },
+      },
     });
   } catch (e) {
     console.error(e);

@@ -44,6 +44,7 @@ export function AddSanteForm({ rabbits, onSuccess }: AddSanteFormProps) {
     description: "",
     date: new Date().toISOString().split("T")[0],
     prochainRappel: "",
+    delaiAttenteJours: "",
     veterinaire: "",
     cout: "",
     notes: "",
@@ -68,7 +69,7 @@ export function AddSanteForm({ rabbits, onSuccess }: AddSanteFormProps) {
       if (!res.ok) throw new Error(data.error || "Erreur inconnue");
 
       setOpen(false);
-      setForm({ rabbitId: "", type: "vaccin", description: "", date: new Date().toISOString().split("T")[0], prochainRappel: "", veterinaire: "", cout: "", notes: "" });
+      setForm({ rabbitId: "", type: "vaccin", description: "", date: new Date().toISOString().split("T")[0], prochainRappel: "", delaiAttenteJours: "", veterinaire: "", cout: "", notes: "" });
       onSuccess();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Erreur inconnue");
@@ -149,6 +150,29 @@ export function AddSanteForm({ rabbits, onSuccess }: AddSanteFormProps) {
                 <Label htmlFor="cout">Coût (FCFA)</Label>
                 <Input id="cout" type="number" step="0.01" placeholder="Ex : 35.50" value={form.cout} onChange={field("cout")} />
               </div>
+            </div>
+          )}
+
+          {/* Délai d'attente — uniquement pour les traitements */}
+          {form.type === "traitement" && (
+            <div className="space-y-1.5">
+              <Label htmlFor="delaiAttenteJours" className="flex items-center gap-1.5">
+                ⛔ Délai d&apos;attente (jours)
+                <span className="text-xs text-muted-foreground font-normal">(interdit de vente/abattage pendant ce délai)</span>
+              </Label>
+              <Input
+                id="delaiAttenteJours"
+                type="number"
+                min="0"
+                placeholder="Ex : 28 jours"
+                value={form.delaiAttenteJours}
+                onChange={field("delaiAttenteJours")}
+              />
+              {form.delaiAttenteJours && Number(form.delaiAttenteJours) > 0 && form.date && (
+                <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
+                  ⚠️ Fin du délai : {new Date(new Date(form.date).getTime() + Number(form.delaiAttenteJours) * 86400000).toLocaleDateString("fr-FR")}
+                </p>
+              )}
             </div>
           )}
 

@@ -71,7 +71,9 @@ model SanteLog {
   type        String   // "vaccin" | "traitement" | "observation" | "veterinaire"
   description String
   date        DateTime
-  prochainRappel DateTime?
+  prochainRappel    DateTime?
+  delaiAttenteJours Int?      // délai d'attente légal en jours (médicaments)
+  finDelaiAttente   DateTime? // date calculée de fin du délai d'attente
   veterinaire String?
   cout        Float?
   notes       String?

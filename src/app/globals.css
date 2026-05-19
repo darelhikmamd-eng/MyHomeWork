@@ -55,3 +55,9 @@
     display: none;
   }
 }
+
+@media print {
+  body > * { display: none !important; }
+  #fiche-cage-print { display: block !important; }
+  #fiche-cage-print * { display: revert !important; }
+}

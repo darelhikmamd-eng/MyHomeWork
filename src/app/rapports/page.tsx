@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { TrendingUp, BarChart3, PieChart, Activity, Loader2, Users } from "lucide-react";
+import { TrendingUp, BarChart3, PieChart, Activity, Loader2, Users, Scale, Wheat, TrendingDown, Info } from "lucide-react";
 import {
   BarChart,
   Bar,
@@ -41,12 +41,35 @@ interface Kpis {
   nbPortees: number;
   totalAccouplements: number;
 }
+interface MortaliteSegmentee {
+  mortsNes: number;
+  sousLaMere: number;
+  adultes: number;
+  totalMortsPortees: number;
+  totalNes: number;
+  normeProf: number;
+}
+interface MargeAlimentaire {
+  valeur: number;
+  recettesVente: number;
+  depensesAlim: number;
+  parFemelle: string;
+  nbFemellesRepro: number;
+  positif: boolean;
+}
+interface Gte {
+  mortaliteSegmentee: MortaliteSegmentee;
+  gmqMoyen: string;
+  nbPesees: number;
+  margeAlimentaire: MargeAlimentaire;
+}
 interface RapportData {
   total: number;
   statutDistribution: StatutItem[];
   raceDistribution: RaceItem[];
   kpis: Kpis;
   reproductionData: ReproMonth[];
+  gte: Gte;
 }
 
 const tooltipStyle = {
@@ -84,7 +107,7 @@ export default function RapportsPage() {
     );
   }
 
-  const { total, statutDistribution, raceDistribution, kpis, reproductionData } = data;
+  const { total, statutDistribution, raceDistribution, kpis, reproductionData, gte } = data;
   const maxStatut = Math.max(...statutDistribution.map((s) => s.value), 1);
 
   return (
@@ -100,6 +123,91 @@ export default function RapportsPage() {
         <div className="flex items-center gap-2 bg-forest-50 border border-forest-200 rounded-xl px-4 py-2.5">
           <Users className="h-4 w-4 text-forest-600" />
           <span className="text-sm font-bold text-forest-700">{total} lapins</span>
+        </div>
+      </div>
+
+      {/* Section GTE */}
+      <div className="bg-gradient-to-r from-forest-50 to-sage-50 border-2 border-forest-200 rounded-2xl p-5 shadow-sm">
+        <div className="flex items-center gap-2 mb-4">
+          <Scale className="h-5 w-5 text-forest-600" />
+          <h2 className="text-base font-bold text-forest-900">Indicateurs Technico-Économiques (GTE)</h2>
+          <span className="text-xs bg-forest-100 text-forest-700 px-2 py-0.5 rounded-full border border-forest-200 font-medium">Norme ITAVI</span>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Mortalité segmentée */}
+          <div className="bg-white rounded-xl border border-earth-100 p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <TrendingDown className="h-4 w-4 text-red-500" />
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Mortalité segmentée</p>
+            </div>
+            <div className="space-y-2.5">
+              {[
+                { label: "Mort-nés", value: gte.mortaliteSegmentee.mortsNes, color: "bg-red-500" },
+                { label: "Sous la mère", value: Math.max(0, gte.mortaliteSegmentee.sousLaMere), color: "bg-orange-400" },
+                { label: "Adultes décédés", value: gte.mortaliteSegmentee.adultes, color: "bg-amber-500" },
+              ].map((seg) => (
+                <div key={seg.label}>
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="text-muted-foreground">{seg.label}</span>
+                    <span className="font-bold">{seg.value.toFixed(1)}%</span>
+                  </div>
+                  <div className="h-1.5 bg-earth-100 rounded-full overflow-hidden">
+                    <div className={`h-full rounded-full ${seg.color}`} style={{ width: `${Math.min(seg.value * 5, 100)}%` }} />
+                  </div>
+                </div>
+              ))}
+              <div className="pt-2 border-t border-earth-100 flex items-center gap-1.5">
+                <Info className="h-3 w-3 text-muted-foreground" />
+                <p className="text-[10px] text-muted-foreground">Norme prof. après sevrage : &lt;{gte.mortaliteSegmentee.normeProf}%</p>
+              </div>
+            </div>
+          </div>
+
+          {/* GMQ */}
+          <div className="bg-white rounded-xl border border-earth-100 p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <TrendingUp className="h-4 w-4 text-forest-500" />
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Gain Moyen Quotidien</p>
+            </div>
+            <p className="text-3xl font-bold text-forest-700">{gte.gmqMoyen}</p>
+            <p className="text-xs text-muted-foreground mt-1">Basé sur {gte.nbPesees} pesée{gte.nbPesees > 1 ? "s" : ""} enregistrée{gte.nbPesees > 1 ? "s" : ""}</p>
+            <div className="mt-3 pt-3 border-t border-earth-100">
+              <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                <Info className="h-3 w-3" />
+                Objectif industriel : 35–45 g/j
+              </p>
+              {gte.nbPesees < 2 && (
+                <p className="text-[10px] text-amber-600 mt-1">Enregistrez des pesées régulières pour calculer le GMQ réel</p>
+              )}
+            </div>
+          </div>
+
+          {/* Marge alimentaire */}
+          <div className={`rounded-xl border p-4 ${gte.margeAlimentaire.positif ? "bg-white border-earth-100" : "bg-red-50 border-red-200"}`}>
+            <div className="flex items-center gap-2 mb-3">
+              <Wheat className="h-4 w-4 text-amber-600" />
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Marge / coût alim.</p>
+            </div>
+            <p className={`text-2xl font-bold ${gte.margeAlimentaire.positif ? "text-forest-700" : "text-red-600"}`}>
+              {gte.margeAlimentaire.positif ? "+" : ""}{gte.margeAlimentaire.valeur.toLocaleString("fr-FR")} FCFA
+            </p>
+            <div className="space-y-1 mt-3">
+              <div className="flex justify-between text-xs">
+                <span className="text-muted-foreground">Recettes vente</span>
+                <span className="text-forest-600 font-medium">+{gte.margeAlimentaire.recettesVente.toLocaleString("fr-FR")} F</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-muted-foreground">Dépenses alim.</span>
+                <span className="text-red-500 font-medium">-{gte.margeAlimentaire.depensesAlim.toLocaleString("fr-FR")} F</span>
+              </div>
+              {gte.margeAlimentaire.nbFemellesRepro > 0 && (
+                <div className="pt-2 border-t border-earth-100 flex justify-between text-xs">
+                  <span className="text-muted-foreground">Par femelle reproductrice</span>
+                  <span className="font-bold">{gte.margeAlimentaire.parFemelle}</span>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 

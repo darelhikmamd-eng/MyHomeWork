@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Syringe, Stethoscope, Eye, AlertTriangle, Calendar, Loader2, Trash2 } from "lucide-react";
+import { Syringe, Stethoscope, Eye, AlertTriangle, Calendar, Loader2, Trash2, ShieldAlert } from "lucide-react";
 import { AddSanteForm } from "@/components/forms/add-sante-form";
 import { formatDate, formatRelativeDate } from "@/lib/utils";
 import { cn } from "@/lib/utils";
@@ -20,6 +20,8 @@ interface SanteLog {
   description: string;
   date: string;
   prochainRappel: string | null;
+  delaiAttenteJours: number | null;
+  finDelaiAttente: string | null;
   veterinaire: string | null;
   cout: number | null;
   notes: string | null;
@@ -255,6 +257,22 @@ export default function SantePage() {
                         </div>
                       </div>
                       <p className="text-sm text-foreground mt-2">{log.description}</p>
+                      {log.finDelaiAttente && (() => {
+                        const fin = new Date(log.finDelaiAttente);
+                        const enCours = fin > new Date();
+                        return (
+                          <div className={cn(
+                            "flex items-center gap-1.5 mt-2 px-2.5 py-1.5 rounded-lg text-xs font-medium",
+                            enCours ? "bg-red-50 border border-red-200 text-red-700" : "bg-slate-50 border border-slate-200 text-slate-500"
+                          )}>
+                            <ShieldAlert className="h-3.5 w-3.5 flex-shrink-0" />
+                            {enCours
+                              ? `⛔ Délai d'attente en cours — Vente/abattage interdit jusqu'au ${fin.toLocaleDateString("fr-FR")} (${log.delaiAttenteJours}j)`
+                              : `✅ Délai d'attente écoulé (fin: ${fin.toLocaleDateString("fr-FR")})`
+                            }
+                          </div>
+                        );
+                      })()}
                       {log.prochainRappel && (
                         <div className="flex items-center gap-1.5 mt-2">
                           <Calendar className="h-3.5 w-3.5 text-forest-500" />

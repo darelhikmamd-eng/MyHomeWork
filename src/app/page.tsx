@@ -12,6 +12,8 @@ import {
   ArrowRight,
   Loader2,
   RefreshCw,
+  ShieldAlert,
+  Wallet,
 } from "lucide-react";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -35,7 +37,11 @@ interface Accouplement {
 }
 interface SanteLog {
   id: string; type: string; description: string; prochainRappel: string | null;
+  finDelaiAttente: string | null;
   rabbit: { id: string; name: string };
+}
+interface Transaction {
+  id: string; type: "depense" | "recette"; categorie: string; montant: number;
 }
 
 export default function DashboardPage() {
@@ -43,19 +49,22 @@ export default function DashboardPage() {
   const [rabbits, setRabbits] = useState<Rabbit[]>([]);
   const [accouplements, setAccouplements] = useState<Accouplement[]>([]);
   const [santeLogs, setSanteLogs] = useState<SanteLog[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [rRes, aRes, sRes] = await Promise.all([
+      const [rRes, aRes, sRes, tRes] = await Promise.all([
         fetch("/api/rabbits"),
         fetch("/api/accouplements"),
         fetch("/api/sante"),
+        fetch("/api/transactions"),
       ]);
       setRabbits(await rRes.json());
       setAccouplements(await aRes.json());
       setSanteLogs(await sRes.json());
+      setTransactions(await tRes.json());
     } catch { /* ignore */ } finally {
       setLoading(false);
     }
@@ -106,6 +115,14 @@ export default function DashboardPage() {
 
   const rappelsCeMois = healthAlerts.filter((h) => h.daysUntil <= 30).length;
   const recentRabbits = [...rabbits].slice(0, 5);
+
+  // Délais d'attente actifs
+  const delaisActifs = santeLogs.filter((l) => l.finDelaiAttente && new Date(l.finDelaiAttente) > today);
+
+  // Marge alimentaire
+  const depensesAlim = transactions.filter((t) => t.type === "depense" && t.categorie === "alimentation").reduce((s, t) => s + t.montant, 0);
+  const recettesVente = transactions.filter((t) => t.type === "recette" && (t.categorie === "vente_lapin" || t.categorie === "vente_viande")).reduce((s, t) => s + t.montant, 0);
+  const margeAlim = recettesVente - depensesAlim;
 
   return (
     <div className="p-4 md:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto">
@@ -219,6 +236,57 @@ export default function DashboardPage() {
           <p className="text-xs text-muted-foreground mt-0.5">Actifs</p>
         </div>
       </div>
+
+      {/* Marge alimentaire GTE */}
+      {transactions.length > 0 && (
+        <div className={`rounded-xl border p-4 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+          margeAlim >= 0 ? "bg-white border-earth-100" : "bg-red-50 border-red-200"
+        }`}>
+          <div className="flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
+              margeAlim >= 0 ? "bg-forest-100" : "bg-red-100"
+            }`}>
+              <Wallet className={`h-5 w-5 ${margeAlim >= 0 ? "text-forest-600" : "text-red-600"}`} />
+            </div>
+            <div>
+              <p className="text-sm font-semibold">Marge sur coût alimentaire (GTE)</p>
+              <p className="text-xs text-muted-foreground">
+                Recettes vente {recettesVente.toLocaleString("fr-FR")} F — Aliments {depensesAlim.toLocaleString("fr-FR")} F
+              </p>
+            </div>
+          </div>
+          <div className="text-right">
+            <p className={`text-2xl font-bold ${margeAlim >= 0 ? "text-forest-700" : "text-red-600"}`}>
+              {margeAlim >= 0 ? "+" : ""}{margeAlim.toLocaleString("fr-FR")} FCFA
+            </p>
+            <Link href="/rapports" className="text-xs text-forest-600 hover:underline flex items-center gap-1 justify-end">
+              Détails GTE <ArrowRight className="h-3 w-3" />
+            </Link>
+          </div>
+        </div>
+      )}
+
+      {/* Alertes délais d'attente actifs */}
+      {delaisActifs.length > 0 && (
+        <div className="rounded-xl border-2 border-red-300 bg-red-50 p-4 shadow-sm">
+          <div className="flex items-center gap-2 mb-3">
+            <ShieldAlert className="h-5 w-5 text-red-600" />
+            <h3 className="text-sm font-bold text-red-800">⛔ {delaisActifs.length} lapin{delaisActifs.length > 1 ? "s" : ""} en délai d&apos;attente médicament</h3>
+          </div>
+          <div className="space-y-2">
+            {delaisActifs.map((l) => {
+              const fin = new Date(l.finDelaiAttente!);
+              const joursRestants = Math.ceil((fin.getTime() - today.getTime()) / 86400000);
+              return (
+                <div key={l.id} className="flex items-center justify-between bg-white rounded-lg px-3 py-2 text-sm border border-red-200">
+                  <span className="font-semibold">{l.rabbit.name}</span>
+                  <span className="text-xs text-red-700 font-medium">Interdit vente/abattage encore {joursRestants}j — jusqu&apos;au {fin.toLocaleDateString("fr-FR")}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Mortalité lapereaux */}
       {totalNes > 0 && (
