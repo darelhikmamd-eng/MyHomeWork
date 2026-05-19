@@ -30,39 +30,48 @@ model Rabbit {
   accouplementsFemelle Accouplement[] @relation("mere")
   santeLogs            SanteLog[]
   poidsLogs            PoidsLog[]
+  lapereaux_biologique Lapereau[]     @relation("mereBiologique")
+  lapereaux_adoptive   Lapereau[]     @relation("mereAdoptive")
 }
 
 model Accouplement {
-  id            String    @id @default(cuid())
+  id               String    @id @default(cuid())
   dateAccouplement DateTime
-  pereId        String
-  mereId        String
-  dateMiseBas   DateTime?  // dateAccouplement + 31 jours
-  statut        String    @default("en_cours") // "en_cours" | "mise_bas" | "echec"
-  nombreNes     Int?
-  nombreVivants Int?
-  dateSevrage   DateTime?
-  notes         String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  pereId           String
+  mereId           String
+  dateMiseBas      DateTime?  // dateAccouplement + 31 jours
+  statut           String    @default("en_cours") // "en_cours" | "mise_bas" | "echec"
+  nombreNes        Int?
+  nombreVivants    Int?
+  dateSevrage      DateTime?
+  couleurVulve     String?   // "blanche" | "rose" | "rouge" | "violacee"
+  notes            String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
-  pere Rabbit @relation("pere", fields: [pereId], references: [id])
-  mere Rabbit @relation("mere", fields: [mereId], references: [id])
-
+  pere     Rabbit        @relation("pere", fields: [pereId], references: [id])
+  mere     Rabbit        @relation("mere", fields: [mereId], references: [id])
   lapereaux Lapereau[]
+  taches   TacheElevage[]
 }
 
 model Lapereau {
-  id             String    @id @default(cuid())
-  accouplementId String
-  identifiant    String?
-  sexe           String?
-  poids          Float?
-  statut         String    @default("vivant") // "vivant" | "mort" | "sevré" | "vendu"
-  notes          String?
-  createdAt      DateTime  @default(now())
+  id                String    @id @default(cuid())
+  accouplementId    String
+  identifiant       String?
+  sexe              String?
+  poids             Float?
+  statut            String    @default("vivant") // "vivant" | "mort" | "sevre" | "vendu"
+  causeDeces        String?   // "presevrage_froid_ecrasement" | "cannibalisme_maternel" | "postsevrage_5sem" | "postsevrage_7sem" | "postsevrage_9sem" | "maladie_fulgurante_vhd" | "autre"
+  mereBiologiqueId  String?
+  mereAdoptiveId    String?
+  dateAdoption      DateTime? // transfert obligatoire dans les 72h
+  notes             String?
+  createdAt         DateTime  @default(now())
 
-  accouplement Accouplement @relation(fields: [accouplementId], references: [id])
+  accouplement   Accouplement @relation(fields: [accouplementId], references: [id])
+  mereBiologique Rabbit?      @relation("mereBiologique", fields: [mereBiologiqueId], references: [id])
+  mereAdoptive   Rabbit?      @relation("mereAdoptive", fields: [mereAdoptiveId], references: [id])
 }
 
 model SanteLog {
@@ -152,4 +161,26 @@ model Transaction {
   notes       String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+model TacheElevage {
+  id             String    @id @default(cuid())
+  accouplementId String?
+  type           String    // "palpation" | "boite_nid" | "mise_bas" | "sevrage" | "retour_saillie"
+  dateEcheance   DateTime
+  statut         String    @default("a_faire") // "a_faire" | "fait" | "ignore"
+  notes          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  accouplement   Accouplement? @relation(fields: [accouplementId], references: [id])
+}
+
+model ParametresElevage {
+  id                 String   @id @default(cuid())
+  rythmeReproduction String   @default("extensif") // "intensif" | "extensif"
+  intervalleIntensif Int      @default(42)  // jours post-mise-bas avant retour saillie
+  intervalleExtensif Int      @default(21)  // jours post-mise-bas (médiane 18-25j)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 }

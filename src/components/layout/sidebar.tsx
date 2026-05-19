@@ -17,6 +17,7 @@ import {
   Bell,
   Brain,
   Sun,
+  CalendarCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
@@ -71,6 +72,11 @@ const navItems = [
     href: "/saisons",
     label: "Gestion saisonnière",
     icon: Sun,
+  },
+  {
+    href: "/taches",
+    label: "Calendrier tâches",
+    icon: CalendarCheck,
   },
 ];
 

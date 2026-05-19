@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { TrendingUp, BarChart3, PieChart, Activity, Loader2, Users, Scale, Wheat, TrendingDown, Info } from "lucide-react";
+import { TrendingUp, BarChart3, PieChart, Activity, Loader2, Users, Scale, Wheat, TrendingDown, Info, Baby, UtensilsCrossed } from "lucide-react";
 import {
   BarChart,
   Bar,
@@ -57,10 +57,26 @@ interface MargeAlimentaire {
   nbFemellesRepro: number;
   positif: boolean;
 }
+interface TauxSurviePresevrage {
+  valeur: string;
+  lapereaux_sevres: number;
+  nés_vivants: number;
+  cible: string;
+  conforme: boolean | null;
+}
+interface IndiceConsommation {
+  valeur: string;
+  totalAlimentKg: number;
+  gainPoidsKg: number;
+  cible: string;
+  conforme: boolean | null;
+}
 interface Gte {
   mortaliteSegmentee: MortaliteSegmentee;
   gmqMoyen: string;
   nbPesees: number;
+  tauxSurviePresevrage: TauxSurviePresevrage;
+  indiceConsommation: IndiceConsommation;
   margeAlimentaire: MargeAlimentaire;
 }
 interface RapportData {
@@ -133,7 +149,7 @@ export default function RapportsPage() {
           <h2 className="text-base font-bold text-forest-900">Indicateurs Technico-Économiques (GTE)</h2>
           <span className="text-xs bg-forest-100 text-forest-700 px-2 py-0.5 rounded-full border border-forest-200 font-medium">Norme ITAVI</span>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
           {/* Mortalité segmentée */}
           <div className="bg-white rounded-xl border border-earth-100 p-4">
             <div className="flex items-center gap-2 mb-3">
@@ -206,6 +222,51 @@ export default function RapportsPage() {
                   <span className="font-bold">{gte.margeAlimentaire.parFemelle}</span>
                 </div>
               )}
+            </div>
+          </div>
+          {/* Taux de survie pré-sevrage */}
+          <div className="bg-white rounded-xl border border-earth-100 p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Baby className="h-4 w-4 text-pink-500" />
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Survie pré-sevrage</p>
+            </div>
+            <p className={`text-3xl font-bold ${gte.tauxSurviePresevrage.conforme ? "text-forest-700" : gte.tauxSurviePresevrage.conforme === false ? "text-red-600" : "text-muted-foreground"}`}>
+              {gte.tauxSurviePresevrage.valeur}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {gte.tauxSurviePresevrage.lapereaux_sevres} sevrés / {gte.tauxSurviePresevrage["nés_vivants"]} nés vivants
+            </p>
+            <div className="mt-3 pt-3 border-t border-earth-100">
+              <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                <Info className="h-3 w-3" />
+                Cible : {gte.tauxSurviePresevrage.cible}
+              </p>
+            </div>
+          </div>
+
+          {/* Indice de Consommation */}
+          <div className={`rounded-xl border p-4 ${
+            gte.indiceConsommation.conforme === true
+              ? "bg-white border-earth-100"
+              : gte.indiceConsommation.conforme === false
+              ? "bg-amber-50 border-amber-200"
+              : "bg-white border-earth-100"
+          }`}>
+            <div className="flex items-center gap-2 mb-3">
+              <UtensilsCrossed className="h-4 w-4 text-amber-600" />
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Indice Consom. (IC)</p>
+            </div>
+            <p className={`text-3xl font-bold ${gte.indiceConsommation.conforme === true ? "text-forest-700" : gte.indiceConsommation.conforme === false ? "text-amber-700" : "text-muted-foreground"}`}>
+              {gte.indiceConsommation.valeur}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {gte.indiceConsommation.totalAlimentKg} kg aliment / {gte.indiceConsommation.gainPoidsKg} kg gain
+            </p>
+            <div className="mt-3 pt-3 border-t border-earth-100">
+              <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                <Info className="h-3 w-3" />
+                Cible industrielle : {gte.indiceConsommation.cible}
+              </p>
             </div>
           </div>
         </div>

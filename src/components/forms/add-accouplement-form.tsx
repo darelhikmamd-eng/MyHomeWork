@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Loader2, Heart } from "lucide-react";
+import { Plus, Loader2, Heart, AlertTriangle } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -47,6 +47,7 @@ export function AddAccouplementForm({ rabbits, onSuccess }: AddAccouplementFormP
     pereId: "",
     mereId: "",
     dateAccouplement: new Date().toISOString().split("T")[0],
+    couleurVulve: "",
     notes: "",
   });
 
@@ -82,7 +83,7 @@ export function AddAccouplementForm({ rabbits, onSuccess }: AddAccouplementFormP
       if (!res.ok) throw new Error(data.error || "Erreur inconnue");
 
       setOpen(false);
-      setForm({ pereId: "", mereId: "", dateAccouplement: new Date().toISOString().split("T")[0], notes: "" });
+      setForm({ pereId: "", mereId: "", dateAccouplement: new Date().toISOString().split("T")[0], couleurVulve: "", notes: "" });
       onSuccess();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Erreur inconnue");
@@ -168,6 +169,24 @@ export function AddAccouplementForm({ rabbits, onSuccess }: AddAccouplementFormP
               <p className="text-xs text-forest-700 font-medium">Mise-bas prévue (calculée)</p>
               <p className="text-base font-bold text-forest-800">{dateMiseBas}</p>
             </div>
+          </div>
+
+          {/* Couleur de vulve */}
+          <div className="space-y-1.5">
+            <Label htmlFor="couleurVulve">Couleur de la vulve</Label>
+            <Select id="couleurVulve" value={form.couleurVulve} onChange={field("couleurVulve")}>
+              <option value="">-- Non renseignée --</option>
+              <option value="blanche">⚪ Blanche — faibles chances ⚠️</option>
+              <option value="rose">🩷 Rose — réceptivité normale</option>
+              <option value="rouge">🔴 Rouge — bonne réceptivité ✓</option>
+              <option value="violacee">🟣 Violacée — pic de réceptivité ✓✓</option>
+            </Select>
+            {form.couleurVulve === "blanche" && (
+              <div className="flex items-start gap-2 bg-amber-50 border border-amber-300 rounded-lg px-3 py-2 text-xs text-amber-800">
+                <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
+                <span>Vulve blanche : chances de fécondation très faibles. Envisager de reporter la saillie.</span>
+              </div>
+            )}
           </div>
 
           {/* Notes */}

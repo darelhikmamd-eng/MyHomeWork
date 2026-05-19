@@ -23,11 +23,13 @@ const COLORS = [
 
 export async function GET() {
   try {
-    const [allRabbits, rawAccouplements, allPoidsLogs, allTransactions] = await Promise.all([
+    const [allRabbits, rawAccouplements, allPoidsLogs, allTransactions, allLapereaux, allDistributions] = await Promise.all([
       prisma.rabbit.findMany(),
       prisma.accouplement.findMany({ orderBy: { createdAt: "desc" } }),
       prisma.poidsLog.findMany({ orderBy: { date: "asc" } }) as Promise<PoidsLog[]>,
       prisma.transaction.findMany(),
+      prisma.lapereau.findMany({ select: { statut: true, accouplementId: true } }),
+      prisma.distributionAliment.findMany({ select: { quantite: true, aliment: { select: { prixUnitaire: true } } } }),
     ]);
     const allAccouplements = rawAccouplements as unknown as AccouplementRow[];
 
@@ -158,6 +160,41 @@ export async function GET() {
         ? (gmqValues.reduce((s, v) => s + v, 0) / gmqValues.length).toFixed(0) + " g/j"
         : "—";
 
+    // ── Taux de survie pré-sevrage (GTE) ────────────────────────────────────
+    // Formule : Nombre de lapereaux sevrés / Nombre de lapereaux nés vivants × 100
+    const lapereaux_sevres = allLapereaux.filter((l) => l.statut === "sevre").length;
+    const totalNesVivantsPortees = portees.reduce((s, a) => s + (a.nombreVivants ?? 0), 0);
+    const tauxSurviePresevrage =
+      totalNesVivantsPortees > 0
+        ? ((lapereaux_sevres / totalNesVivantsPortees) * 100).toFixed(1) + "%"
+        : "—";
+
+    // ── Indice de Consommation (IC) ──────────────────────────────────────────
+    // Formule : Quantité totale aliment consommée (kg) / Gain de poids total (kg)
+    // Référence industrielle : 3,38 – 3,48
+    const totalAlimentKg = allDistributions.reduce((s, d) => s + d.quantite, 0);
+    const totalGainPoids = gmqValues.reduce((s, gmq) => {
+      // gmq est en g/j, on a la durée d'observation dans les logs
+      // On recalcule depuis les logs directement
+      return s + gmq;
+    }, 0);
+    // Calcul depuis les logs de poids : somme des gains en kg
+    let gainPoidsTotal = 0;
+    for (const logs of Object.values(poidsParLapin)) {
+      if (logs.length < 2) continue;
+      const sorted = [...logs].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      const gain = sorted[sorted.length - 1].poids - sorted[0].poids;
+      if (gain > 0) gainPoidsTotal += gain;
+    }
+    const indiceConsommation =
+      gainPoidsTotal > 0 && totalAlimentKg > 0
+        ? (totalAlimentKg / gainPoidsTotal).toFixed(2)
+        : "—";
+    const icValeur = gainPoidsTotal > 0 && totalAlimentKg > 0 ? totalAlimentKg / gainPoidsTotal : null;
+    const icConforme = icValeur !== null ? icValeur >= 3.38 && icValeur <= 3.48 : null;
+
+    void totalGainPoids; // éviter warning lint
+
     // ── Marge sur coût alimentaire ────────────────────────────────────────────
     const depensesAlim = allTransactions
       .filter((t) => t.type === "depense" && t.categorie === "alimentation")
@@ -228,6 +265,20 @@ export async function GET() {
         },
         gmqMoyen,
         nbPesees: allPoidsLogs.length,
+        tauxSurviePresevrage: {
+          valeur: tauxSurviePresevrage,
+          lapereaux_sevres,
+          nés_vivants: totalNesVivantsPortees,
+          cible: "≥ 85%",
+          conforme: totalNesVivantsPortees > 0 ? (lapereaux_sevres / totalNesVivantsPortees) >= 0.85 : null,
+        },
+        indiceConsommation: {
+          valeur: indiceConsommation,
+          totalAlimentKg: Math.round(totalAlimentKg * 100) / 100,
+          gainPoidsKg: Math.round(gainPoidsTotal * 100) / 100,
+          cible: "3,38 – 3,48",
+          conforme: icConforme,
+        },
         margeAlimentaire: {
           valeur: Math.round(margeAlimentaire),
           recettesVente: Math.round(recettesVente),
