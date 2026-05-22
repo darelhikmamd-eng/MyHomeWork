@@ -46,6 +46,14 @@ function urgencyBadge(dateEcheance: string, statut: string) {
   return null;
 }
 
+function isFutureTask(dateEcheance: string) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const dueDate = new Date(dateEcheance);
+  dueDate.setHours(0, 0, 0, 0);
+  return dueDate.getTime() > today.getTime();
+}
+
 export default function TachesPage() {
   const [taches, setTaches] = useState<Tache[]>([]);
   const [loading, setLoading] = useState(true);
@@ -150,7 +158,9 @@ export default function TachesPage() {
         </div>
       ) : (
         <div className="space-y-2">
-          {taches.map((tache) => (
+          {taches.map((tache) => {
+            const isFuture = isFutureTask(tache.dateEcheance);
+            return (
             <div
               key={tache.id}
               className={`rounded-xl border p-4 shadow-sm flex flex-col sm:flex-row sm:items-center gap-3 transition-colors ${urgencyClass(tache.dateEcheance, tache.statut)}`}
@@ -186,8 +196,9 @@ export default function TachesPage() {
                 <div className="flex gap-2 flex-shrink-0">
                   <button
                     onClick={() => updateStatut(tache.id, "fait")}
-                    disabled={updating === tache.id}
-                    className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 bg-forest-600 text-white rounded-lg hover:bg-forest-700 disabled:opacity-60"
+                    disabled={updating === tache.id || isFuture}
+                    title={isFuture ? "Cette tâche ne peut être cochée qu'à partir de sa date prévue." : undefined}
+                    className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 bg-forest-600 text-white rounded-lg hover:bg-forest-700 disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     {updating === tache.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
                     Fait
@@ -212,7 +223,8 @@ export default function TachesPage() {
                 </button>
               )}
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

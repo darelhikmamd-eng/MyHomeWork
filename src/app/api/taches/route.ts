@@ -44,6 +44,29 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: "id et statut requis" }, { status: 400 });
     }
 
+    if (statut === "fait") {
+      const tache = await prisma.tacheElevage.findUnique({
+        where: { id },
+        select: { dateEcheance: true },
+      });
+
+      if (!tache) {
+        return NextResponse.json({ error: "Tâche introuvable" }, { status: 404 });
+      }
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const dueDate = new Date(tache.dateEcheance);
+      dueDate.setHours(0, 0, 0, 0);
+
+      if (dueDate.getTime() > today.getTime()) {
+        return NextResponse.json(
+          { error: "Cette tâche ne peut être marquée comme faite qu'à partir de sa date prévue." },
+          { status: 400 }
+        );
+      }
+    }
+
     const updated = await prisma.tacheElevage.update({
       where: { id },
       data: {
