@@ -79,6 +79,7 @@ interface Gte {
   indiceConsommation: IndiceConsommation;
   margeAlimentaire: MargeAlimentaire;
 }
+interface CroissanceItem { semaine: string; poidsMoyen: number; nbPesees: number }
 interface RapportData {
   total: number;
   statutDistribution: StatutItem[];
@@ -86,6 +87,7 @@ interface RapportData {
   kpis: Kpis;
   reproductionData: ReproMonth[];
   gte: Gte;
+  croissanceReelle: CroissanceItem[];
 }
 
 const tooltipStyle = {
@@ -123,8 +125,25 @@ export default function RapportsPage() {
     );
   }
 
-  const { total, statutDistribution, raceDistribution, kpis, reproductionData, gte } = data;
+  const { total, statutDistribution, raceDistribution, kpis, reproductionData, gte, croissanceReelle } = data;
   const maxStatut = Math.max(...statutDistribution.map((s) => s.value), 1);
+
+  // Fusionner les données théoriques et réelles pour le graphique de croissance
+  const mergedCroissance = (() => {
+    const allWeeks = new Set<string>();
+    croissanceRef.forEach((d) => allWeeks.add(d.semaine));
+    (croissanceReelle ?? []).forEach((d) => allWeeks.add(d.semaine));
+    const sorted = Array.from(allWeeks).sort((a, b) => {
+      const na = parseInt(a.replace("S", ""), 10);
+      const nb = parseInt(b.replace("S", ""), 10);
+      return na - nb;
+    });
+    return sorted.map((semaine) => ({
+      semaine,
+      theorique: croissanceRef.find((d) => d.semaine === semaine)?.poidsMoyen ?? null,
+      reel: (croissanceReelle ?? []).find((d) => d.semaine === semaine)?.poidsMoyen ?? null,
+    }));
+  })();
 
   return (
     <div className="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
@@ -314,28 +333,39 @@ export default function RapportsPage() {
           </ResponsiveContainer>
         </div>
 
-        {/* Growth curve — reference */}
+        {/* Growth curve — real + reference */}
         <div className="bg-white rounded-xl border border-earth-100 p-5 shadow-sm">
           <h2 className="text-base font-semibold text-foreground mb-1 flex items-center gap-2">
             <TrendingUp className="h-4 w-4 text-forest-600" />
-            Courbe de croissance de référence (kg)
+            Courbe de croissance (kg)
           </h2>
           <p className="text-xs text-muted-foreground mb-4">
-            Courbe théorique standard — les pesées individuelles alimenteront ce graphique
+            {(croissanceReelle ?? []).length > 0
+              ? "Données réelles de pesées (courbe verte) vs. référence théorique ITAVI (pointillés)"
+              : "Courbe théorique standard — enregistrez des pesées pour afficher vos données réelles"}
           </p>
           <ResponsiveContainer width="100%" height={220}>
-            <LineChart data={croissanceRef}>
+            <LineChart data={mergedCroissance}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e8e2c4" />
               <XAxis dataKey="semaine" tick={{ fontSize: 11, fill: "#8b6d42" }} />
               <YAxis tick={{ fontSize: 11, fill: "#8b6d42" }} />
               <Tooltip contentStyle={tooltipStyle} />
               <Line
                 type="monotone"
-                dataKey="poidsMoyen"
+                dataKey="theorique"
+                stroke="#a8be9b"
+                strokeWidth={2}
+                strokeDasharray="6 4"
+                dot={false}
+                name="Référence théorique"
+              />
+              <Line
+                type="monotone"
+                dataKey="reel"
                 stroke="#3d7a3d"
                 strokeWidth={2.5}
                 dot={{ fill: "#3d7a3d", r: 4 }}
-                name="Poids (kg)"
+                name="Poids réel moyen"
               />
             </LineChart>
           </ResponsiveContainer>

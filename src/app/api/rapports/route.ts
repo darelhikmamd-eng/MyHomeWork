@@ -28,10 +28,13 @@ export async function GET() {
       prisma.accouplement.findMany({ orderBy: { createdAt: "desc" } }),
       prisma.poidsLog.findMany({ orderBy: { date: "asc" } }) as Promise<PoidsLog[]>,
       prisma.transaction.findMany(),
-      prisma.lapereau.findMany({ select: { statut: true, accouplementId: true } }),
+      prisma.lapereau.findMany({ select: { statut: true, accouplementId: true, causeDeces: true } }),
       prisma.distributionAliment.findMany({ select: { quantite: true, aliment: { select: { prixUnitaire: true } } } }),
     ]);
     const allAccouplements = rawAccouplements as unknown as AccouplementRow[];
+
+    // Map rapide rabbitId -> dateNaissance pour la courbe réelle
+    const rabbitBirthMap = new Map(allRabbits.map((r) => [r.id, new Date(r.dateNaissance).getTime()]));
 
     const total = allRabbits.length;
 
@@ -118,20 +121,18 @@ export async function GET() {
         : "—";
 
     // ── Mortalité segmentée (GTE) ────────────────────────────────────────────
-    const toutesPortees = allAccouplements.filter(
-      (a) => a.statut === "mise_bas" || a.statut === "sevrage"
-    );
+    const toutesPortees = allAccouplements.filter((a) => a.statut === "mise_bas");
     const totalNesPortees = toutesPortees.reduce((s, a) => s + (a.nombreNes ?? 0), 0);
     const totalVivantsPortees = toutesPortees.reduce((s, a) => s + (a.nombreVivants ?? 0), 0);
     const mortsNes = toutesPortees.reduce(
       (s, a) => s + Math.max(0, (a.nombreNes ?? 0) - (a.nombreVivants ?? 0)),
       0
     );
-    // Pour la mortalité sous la mère on compare mise_bas (nombreVivants à la naissance) vs sevrage
-    const porteesMiseBas = allAccouplements.filter((a) => a.statut === "mise_bas");
-    const porteesSevrages = allAccouplements.filter((a) => a.statut === "sevrage");
-    const vivantsNaissanceSevrage = porteesMiseBas.reduce((s, a) => s + (a.nombreVivants ?? 0), 0);
-    const vivantsApresSevrageTotal = porteesSevrages.reduce((s, a) => s + (a.nombreVivants ?? 0), 0);
+    // Mortalité sous la mère = lapereaux morts / nés vivants × 100
+    const lapereauxMorts = allLapereaux.filter((l) => l.statut === "mort").length;
+    const tauxMortSousLaMere = totalVivantsPortees > 0
+      ? ((lapereauxMorts / totalVivantsPortees) * 100).toFixed(1)
+      : "0";
     // Taux de mortalité segmenté
     const tauxMortNes = totalNesPortees > 0 ? ((mortsNes / totalNesPortees) * 100).toFixed(1) : "0";
     const tauxMortAdultes = total > 0 ? ((decedes / total) * 100).toFixed(1) : "0";
@@ -195,6 +196,26 @@ export async function GET() {
 
     void totalGainPoids; // éviter warning lint
 
+    // ── Courbe de croissance réelle (kg) ────────────────────────────────────
+    const poidsParSemaine: Record<number, number[]> = {};
+    for (const log of allPoidsLogs) {
+      const birthTs = rabbitBirthMap.get(log.rabbitId) as number | undefined;
+      if (!birthTs) continue;
+      const ageJours = (new Date(log.date).getTime() - birthTs) / 86400000;
+      const ageSemaines = Math.round(ageJours / 7);
+      if (ageSemaines >= 0 && ageSemaines <= 20) {
+        if (!poidsParSemaine[ageSemaines]) poidsParSemaine[ageSemaines] = [];
+        poidsParSemaine[ageSemaines].push(log.poids);
+      }
+    }
+    const croissanceReelle = Object.entries(poidsParSemaine)
+      .sort((a, b) => Number(a[0]) - Number(b[0]))
+      .map(([semaine, poids]) => ({
+        semaine: `S${semaine}`,
+        poidsMoyen: Math.round((poids.reduce((s: number, p: number) => s + p, 0) / poids.length) * 100) / 100,
+        nbPesees: poids.length,
+      }));
+
     // ── Marge sur coût alimentaire ────────────────────────────────────────────
     const depensesAlim = allTransactions
       .filter((t) => t.type === "depense" && t.categorie === "alimentation")
@@ -255,9 +276,7 @@ export async function GET() {
       gte: {
         mortaliteSegmentee: {
           mortsNes: Number(tauxMortNes),
-          sousLaMere: totalNesPortees > 0
-            ? Number(((totalNesPortees - totalVivantsPortees - mortsNes) / totalNesPortees * 100).toFixed(1))
-            : 0,
+          sousLaMere: totalVivantsPortees > 0 ? Number(tauxMortSousLaMere) : 0,
           adultes: Number(tauxMortAdultes),
           totalMortsPortees: totalNesPortees - totalVivantsPortees,
           totalNes: totalNesPortees,
@@ -288,6 +307,7 @@ export async function GET() {
           positif: margeAlimentaire >= 0,
         },
       },
+      croissanceReelle,
     });
   } catch (e) {
     console.error(e);
