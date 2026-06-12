@@ -81,7 +81,14 @@ export async function GET() {
 
     // ── KPIs ────────────────────────────────────────────────────────────────
     const decedes = allRabbits.filter((r) => r.statut === "decede").length;
-    const tauxMortalite = total > 0 ? ((decedes / total) * 100).toFixed(1) : "0";
+    const lapereauxMortsKpi = allLapereaux.filter((l) => l.statut === "mort").length;
+    const mortsNesKpi = allAccouplements
+      .filter((a) => a.statut === "mise_bas")
+      .reduce((s, a) => s + Math.max(0, (a.nombreNes ?? 0) - (a.nombreVivants ?? 0)), 0);
+
+    const totalDeces = decedes + lapereauxMortsKpi + mortsNesKpi;
+    const totalAnimaux = total + allLapereaux.length + mortsNesKpi;
+    const tauxMortalite = totalAnimaux > 0 ? ((totalDeces / totalAnimaux) * 100).toFixed(1) : "0";
 
     const adultes = allRabbits.filter(
       (r) => r.poids && r.poids > 2.5 && r.statut !== "decede"
