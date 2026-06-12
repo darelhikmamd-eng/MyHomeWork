@@ -79,16 +79,15 @@ export async function GET() {
         : []),
     ];
 
-    // ── KPIs ────────────────────────────────────────────────────────────────
     const decedes = allRabbits.filter((r) => r.statut === "decede").length;
-    const lapereauxMortsKpi = allLapereaux.filter((l) => l.statut === "mort").length;
-    const mortsNesKpi = allAccouplements
-      .filter((a) => a.statut === "mise_bas")
-      .reduce((s, a) => s + Math.max(0, (a.nombreNes ?? 0) - (a.nombreVivants ?? 0)), 0);
 
-    const totalDeces = decedes + lapereauxMortsKpi + mortsNesKpi;
-    const totalAnimaux = total + allLapereaux.length + mortsNesKpi;
-    const tauxMortalite = totalAnimaux > 0 ? ((totalDeces / totalAnimaux) * 100).toFixed(1) : "0";
+    // ── KPIs ────────────────────────────────────────────────────────────────
+    // Taux de mortalite = mortalite a la naissance (meme calcul que tableau de bord)
+    const porteesKpi = allAccouplements.filter((a) => a.statut === "mise_bas");
+    const totalNesKpi = porteesKpi.reduce((s, a) => s + (a.nombreNes ?? 0), 0);
+    const totalVivantsKpi = porteesKpi.reduce((s, a) => s + (a.nombreVivants ?? 0), 0);
+    const mortsNesKpi = totalNesKpi - totalVivantsKpi;
+    const tauxMortalite = totalNesKpi > 0 ? ((mortsNesKpi / totalNesKpi) * 100).toFixed(1) : "0";
 
     const adultes = allRabbits.filter(
       (r) => r.poids && r.poids > 2.5 && r.statut !== "decede"

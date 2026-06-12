@@ -78,7 +78,7 @@ export default function DashboardPage() {
   const reproducteurs = rabbits.filter((r) => r.statut === "reproducteur");
 
   // Lapereaux issus des mise-bas (non encore enregistrés comme lapins individuels)
-  const portees = accouplements.filter((a) => a.statut === "mise_bas" || a.statut === "sevrage");
+  const portees = accouplements.filter((a) => a.statut === "mise_bas");
   const lapreauxMiseBas = portees.reduce((sum, a) => sum + (a.nombreVivants ?? 0), 0);
   const totalNes = portees.reduce((sum, a) => sum + (a.nombreNes ?? 0), 0);
   const totalMorts = totalNes - lapreauxMiseBas;
@@ -563,7 +563,7 @@ export default function DashboardPage() {
 
       {/* Reproduction performance */}
       {accouplements.length > 0 && (() => {
-        const termines = accouplements.filter((a) => a.statut === "mise_bas" || a.statut === "sevrage");
+        const termines = accouplements.filter((a) => a.statut === "mise_bas");
         const tauxGestation = accouplements.length > 0
           ? Math.round((termines.length / accouplements.length) * 100) : 0;
         return (
