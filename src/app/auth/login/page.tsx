@@ -1,16 +1,28 @@
 "use client";
 
-import { useState } from "react";
-import { signIn } from "next-auth/react";
+import { useState, useEffect } from "react";
+import { signIn, useSession } from "next-auth/react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Rabbit, Eye, EyeOff, Loader2, AlertCircle } from "lucide-react";
 
 export default function LoginPage() {
+  const { status } = useSession();
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams.get("callbackUrl") || "/";
+
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Rediriger si déjà authentifié
+  useEffect(() => {
+    if (status === "authenticated") {
+      window.location.replace(callbackUrl);
+    }
+  }, [status, callbackUrl]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -25,10 +37,10 @@ export default function LoginPage() {
 
     setLoading(false);
 
-    if (result?.error) {
-      setError("Nom d'utilisateur ou mot de passe incorrect.");
+    if (result?.ok) {
+      window.location.replace(callbackUrl);
     } else {
-      window.location.href = "/";
+      setError("Nom d'utilisateur ou mot de passe incorrect.");
     }
   }
 
