@@ -2,12 +2,10 @@
 
 import { useState } from "react";
 import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Rabbit, Eye, EyeOff, Loader2, AlertCircle } from "lucide-react";
 
 export default function LoginPage() {
-  const router = useRouter();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -30,8 +28,7 @@ export default function LoginPage() {
     if (result?.error) {
       setError("Nom d'utilisateur ou mot de passe incorrect.");
     } else {
-      router.push("/");
-      router.refresh();
+      window.location.href = "/";
     }
   }
 
