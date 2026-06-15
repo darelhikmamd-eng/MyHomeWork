@@ -18,9 +18,13 @@ import {
   Brain,
   Sun,
   CalendarCheck,
+  LogOut,
+  Shield,
+  User,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
+import { useSession, signOut } from "next-auth/react";
 
 const navItems = [
   {
@@ -84,6 +88,7 @@ export function Sidebar() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [notifCount, setNotifCount] = useState(0);
+  const { data: session } = useSession();
 
   useEffect(() => {
     const fetch_ = () =>
@@ -178,17 +183,57 @@ export function Sidebar() {
         </nav>
 
         {/* Bottom */}
-        <div className="p-3 border-t border-forest-600">
+        <div className="p-3 border-t border-forest-600 space-y-1">
           <Link
             href="/parametres"
+            onClick={() => setMobileOpen(false)}
             className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-sage-200 hover:bg-forest-600 hover:text-cream-50 transition-colors"
           >
             <Settings className="h-5 w-5" />
             Paramètres
           </Link>
-          <div className="mt-3 px-3 py-2.5 bg-forest-800 rounded-lg">
-            <p className="text-xs text-sage-300">Version 1.0.0</p>
-            <p className="text-xs text-sage-400 mt-0.5">Mai 2026</p>
+
+          {session?.user?.role === "ADMIN" && (
+            <Link
+              href="/admin"
+              onClick={() => setMobileOpen(false)}
+              className={cn(
+                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                pathname.startsWith("/admin")
+                  ? "bg-amber-500 text-amber-950"
+                  : "text-amber-300 hover:bg-forest-600 hover:text-amber-200"
+              )}
+            >
+              <Shield className="h-5 w-5" />
+              Panneau Admin
+            </Link>
+          )}
+
+          {/* User info + logout */}
+          <div className="mt-2 px-3 py-2.5 bg-forest-800 rounded-lg">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-7 h-7 bg-sage-400 rounded-full flex items-center justify-center flex-shrink-0">
+                {session?.user?.role === "ADMIN"
+                  ? <Shield className="h-3.5 w-3.5 text-forest-800" />
+                  : <User className="h-3.5 w-3.5 text-forest-800" />
+                }
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold text-cream-100 truncate">
+                  {session?.user?.username ?? "Utilisateur"}
+                </p>
+                <p className="text-[10px] text-sage-400">
+                  {session?.user?.role === "ADMIN" ? "Administrateur" : "Éleveur"}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => signOut({ callbackUrl: "/auth/login" })}
+              className="w-full flex items-center gap-2 text-xs text-sage-300 hover:text-red-300 transition-colors py-1"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+              Se déconnecter
+            </button>
           </div>
         </div>
       </aside>

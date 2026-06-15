@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import type { PoidsLog } from "@prisma/client";
+import { getAuthSession, unauthorized } from "@/lib/session";
 
 // Transitional type: Prisma IDE cache may still show "dateGestation"
 // but the actual DB column is "dateMiseBas" after schema migration.
@@ -22,14 +23,20 @@ const COLORS = [
 ];
 
 export async function GET() {
+  const session = await getAuthSession();
+  if (!session) return unauthorized();
+  const isAdmin = session.user.role === "ADMIN";
+  const userId = session.user.id;
+  const uFilter = isAdmin ? {} : { userId };
+
   try {
     const [allRabbits, rawAccouplements, allPoidsLogs, allTransactions, allLapereaux, allDistributions] = await Promise.all([
-      prisma.rabbit.findMany(),
-      prisma.accouplement.findMany({ orderBy: { createdAt: "desc" } }),
-      prisma.poidsLog.findMany({ orderBy: { date: "asc" } }) as Promise<PoidsLog[]>,
-      prisma.transaction.findMany(),
-      prisma.lapereau.findMany({ select: { statut: true, accouplementId: true, causeDeces: true } }),
-      prisma.distributionAliment.findMany({ select: { quantite: true, aliment: { select: { prixUnitaire: true } } } }),
+      prisma.rabbit.findMany({ where: uFilter }),
+      prisma.accouplement.findMany({ where: uFilter, orderBy: { createdAt: "desc" } }),
+      prisma.poidsLog.findMany({ where: isAdmin ? {} : { rabbit: { userId } }, orderBy: { date: "asc" } }) as Promise<PoidsLog[]>,
+      prisma.transaction.findMany({ where: uFilter }),
+      prisma.lapereau.findMany({ where: isAdmin ? {} : { accouplement: { userId } }, select: { statut: true, accouplementId: true, causeDeces: true } }),
+      prisma.distributionAliment.findMany({ where: isAdmin ? {} : { aliment: { userId } }, select: { quantite: true, aliment: { select: { prixUnitaire: true } } } }),
     ]);
     const allAccouplements = rawAccouplements as unknown as AccouplementRow[];
 

@@ -10,8 +10,25 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model User {
+  id        String   @id @default(cuid())
+  username  String   @unique
+  email     String?
+  password  String
+  role      String   @default("USER") // "USER" | "ADMIN"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  rabbits       Rabbit[]
+  aliments      Aliment[]
+  transactions  Transaction[]
+  accouplements Accouplement[]
+  notifications NotificationTicket[]
+}
+
 model Rabbit {
   id            String    @id @default(cuid())
+  userId        String?
   name          String
   identifiant   String    @unique
   race          String
@@ -25,6 +42,7 @@ model Rabbit {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
+  user                 User?          @relation(fields: [userId], references: [id])
   // Relations
   accouplementsMale    Accouplement[] @relation("pere")
   accouplementsFemelle Accouplement[] @relation("mere")
@@ -36,6 +54,7 @@ model Rabbit {
 
 model Accouplement {
   id               String    @id @default(cuid())
+  userId           String?
   dateAccouplement DateTime
   pereId           String
   mereId           String
@@ -49,6 +68,7 @@ model Accouplement {
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
+  user     User?         @relation(fields: [userId], references: [id])
   pere     Rabbit        @relation("pere", fields: [pereId], references: [id])
   mere     Rabbit        @relation("mere", fields: [mereId], references: [id])
   lapereaux Lapereau[]
@@ -103,6 +123,7 @@ model PoidsLog {
 
 model Aliment {
   id           String   @id @default(cuid())
+  userId       String?
   nom          String
   type         String   // "foin" | "granules" | "legumes" | "supplement" | "autre"
   unite        String   @default("kg")  // "kg" | "g" | "L" | "botte"
@@ -114,6 +135,7 @@ model Aliment {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  user          User?                @relation(fields: [userId], references: [id])
   distributions DistributionAliment[]
 }
 
@@ -131,6 +153,7 @@ model DistributionAliment {
 
 model NotificationTicket {
   id              String   @id @default(cuid())
+  userId          String?
   notificationId  String   @unique // ID stable de la notification calculée (ex: "mise_bas_clxxxx")
   type            String   // "mise_bas" | "saillie" | "stock_bas" | ...
   titre           String
@@ -147,12 +170,15 @@ model NotificationTicket {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
+  user            User?    @relation(fields: [userId], references: [id])
+
   @@index([notificationId])
   @@index([status])
 }
 
 model Transaction {
   id          String   @id @default(cuid())
+  userId      String?
   type        String   // "depense" | "recette"
   categorie   String   // "alimentation" | "veterinaire" | "equipement" | "vente_lapin" | "vente_viande" | "reproduction" | "autre"
   montant     Float
@@ -161,6 +187,8 @@ model Transaction {
   notes       String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  user        User?    @relation(fields: [userId], references: [id])
 }
 
 model TacheElevage {
@@ -178,6 +206,7 @@ model TacheElevage {
 
 model ParametresElevage {
   id                 String   @id @default(cuid())
+  userId             String?
   rythmeReproduction String   @default("extensif") // "intensif" | "extensif"
   intervalleIntensif Int      @default(42)  // jours post-mise-bas avant retour saillie
   intervalleExtensif Int      @default(21)  // jours post-mise-bas (médiane 18-25j)

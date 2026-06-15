@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getAuthSession, unauthorized } from "@/lib/session";
 
 export interface SmartNotification {
   id: string;
@@ -26,13 +27,19 @@ interface AccRow {
 }
 
 export async function GET() {
+  const session = await getAuthSession();
+  if (!session) return unauthorized();
+  const isAdmin = session.user.role === "ADMIN";
+  const userId = session.user.id;
+  const userFilter = isAdmin ? {} : { userId };
+
   try {
     const notifications: SmartNotification[] = [];
     const now = new Date();
 
     // ── 1. MISE-BAS IMMINENTE (dans les 5 prochains jours) ────────────────
     const accsEnCours = (await prisma.accouplement.findMany({
-      where: { statut: "en_cours" },
+      where: { statut: "en_cours", ...userFilter },
       include: { mere: { select: { id: true, name: true, identifiant: true } } },
     })) as unknown as AccRow[];
 
@@ -90,7 +97,7 @@ export async function GET() {
 
     // ── 3. SEVRAGE RECOMMANDÉ (mise-bas > 28 jours) ───────────────────────
     const accsMiseBas = (await prisma.accouplement.findMany({
-      where: { statut: "mise_bas" },
+      where: { statut: "mise_bas", ...userFilter },
       include: { mere: { select: { id: true, name: true, identifiant: true } } },
     })) as unknown as AccRow[];
 
@@ -117,7 +124,7 @@ export async function GET() {
 
     // ── 4. SAILLIE RECOMMANDÉE ────────────────────────────────────────────
     const femelles = await prisma.rabbit.findMany({
-      where: { sexe: "femelle", statut: "reproducteur" },
+      where: { sexe: "femelle", statut: "reproducteur", ...userFilter },
       include: {
         accouplementsFemelle: {
           orderBy: { dateAccouplement: "desc" },
@@ -160,9 +167,10 @@ export async function GET() {
     const rappelsSante = await prisma.santeLog.findMany({
       where: {
         prochainRappel: {
-          gte: new Date(now.getTime() - 86400000), // inclure hier (rappels dépassés)
+          gte: new Date(now.getTime() - 86400000),
           lte: new Date(now.getTime() + 7 * 86400000),
         },
+        ...(isAdmin ? {} : { rabbit: { userId } }),
       },
       include: { rabbit: { select: { id: true, name: true, identifiant: true } } },
     });
@@ -188,7 +196,7 @@ export async function GET() {
     }
 
     // ── 6. STOCKS BAS ─────────────────────────────────────────────────────
-    const aliments = await prisma.aliment.findMany();
+    const aliments = await prisma.aliment.findMany({ where: userFilter });
     for (const aliment of aliments) {
       if (aliment.stockActuel <= aliment.stockMin) {
         const vide = aliment.stockActuel <= 0;
@@ -207,25 +215,22 @@ export async function GET() {
 
     // ── 7. ALERTES ALIMENTATION — basées sur données réelles ─────────────
     const totalLapins = await prisma.rabbit.count({
-      where: { statut: { in: ["actif", "reproducteur"] } },
+      where: { statut: { in: ["actif", "reproducteur"] }, ...userFilter },
     });
 
     if (totalLapins > 0) {
       const heure = now.getHours();
 
-      // Granulés disponibles ?
       const granules = await prisma.aliment.findFirst({
-        where: { type: { in: ["granules", "granulés", "Granulés"] }, stockActuel: { gt: 0 } },
+        where: { type: { in: ["granules", "granulés", "Granulés"] }, stockActuel: { gt: 0 }, ...userFilter },
       });
 
-      // Foin disponible ?
       const foin = await prisma.aliment.findFirst({
-        where: { type: { in: ["foin", "Foin"] }, stockActuel: { gt: 0 } },
+        where: { type: { in: ["foin", "Foin"] }, stockActuel: { gt: 0 }, ...userFilter },
       });
 
-      // Légumes disponibles ?
       const legumes = await prisma.aliment.findFirst({
-        where: { type: { in: ["légumes", "legumes", "Légumes", "Fruits & légumes"] }, stockActuel: { gt: 0 } },
+        where: { type: { in: ["légumes", "legumes", "Légumes", "Fruits & légumes"] }, stockActuel: { gt: 0 }, ...userFilter },
       });
 
       if (heure >= 6 && heure <= 8) {
@@ -269,7 +274,7 @@ export async function GET() {
     // ── Filtrer les tickets déjà résolus (système GLPI-like) ─────────────
     const ids = notifications.map((n) => n.id);
     const resolvedTickets = await prisma.notificationTicket.findMany({
-      where: { notificationId: { in: ids }, status: "resolved" },
+      where: { notificationId: { in: ids }, status: "resolved", ...userFilter },
       select: { notificationId: true },
     });
     const resolvedSet = new Set(resolvedTickets.map((t) => t.notificationId));

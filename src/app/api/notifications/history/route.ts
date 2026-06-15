@@ -1,12 +1,17 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getAuthSession, unauthorized } from "@/lib/session";
 
 // GET /api/notifications/history
-// Retourne la liste des tickets de notification résolus (historique).
 export async function GET() {
+  const session = await getAuthSession();
+  if (!session) return unauthorized();
+  const isAdmin = session.user.role === "ADMIN";
+  const userId = session.user.id;
+
   try {
     const tickets = await prisma.notificationTicket.findMany({
-      where: { status: "resolved" },
+      where: isAdmin ? { status: "resolved" } : { status: "resolved", userId },
       orderBy: { resolvedAt: "desc" },
       take: 200,
     });

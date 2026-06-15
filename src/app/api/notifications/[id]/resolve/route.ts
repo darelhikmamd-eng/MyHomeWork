@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getAuthSession, unauthorized } from "@/lib/session";
 
 // POST /api/notifications/[id]/resolve
 // Marque une notification comme effectuée (ticket fermé) avec une note de résolution.
@@ -7,6 +8,9 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const session = await getAuthSession();
+  if (!session) return unauthorized();
+
   try {
     const { id: notificationId } = await params;
     const body = await req.json();
@@ -42,6 +46,7 @@ export async function POST(
     const ticket = await prisma.notificationTicket.upsert({
       where: { notificationId },
       create: {
+        userId: session.user.id,
         notificationId,
         type,
         titre,

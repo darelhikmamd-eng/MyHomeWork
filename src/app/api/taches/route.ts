@@ -1,14 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getAuthSession, unauthorized } from "@/lib/session";
 
 export async function GET(req: NextRequest) {
+  const session = await getAuthSession();
+  if (!session) return unauthorized();
+  const isAdmin = session.user.role === "ADMIN";
+  const userId = session.user.id;
+
   try {
     const { searchParams } = new URL(req.url);
-    const statut = searchParams.get("statut"); // "a_faire" | "fait" | "ignore" | null = all
-    const horizon = searchParams.get("horizon"); // nombre de jours à afficher (défaut 30)
+    const statut = searchParams.get("statut");
+    const horizon = searchParams.get("horizon");
 
     const where: Record<string, unknown> = {};
     if (statut) where.statut = statut;
+    if (!isAdmin) where.accouplement = { userId };
 
     if (horizon) {
       const limit = new Date();
@@ -36,6 +43,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
+  const session = await getAuthSession();
+  if (!session) return unauthorized();
   try {
     const body = await req.json();
     const { id, statut, notes } = body;

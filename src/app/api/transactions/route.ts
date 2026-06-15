@@ -1,9 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getAuthSession, unauthorized } from "@/lib/session";
 
 export async function GET() {
+  const session = await getAuthSession();
+  if (!session) return unauthorized();
+  const isAdmin = session.user.role === "ADMIN";
+  const userId = session.user.id;
+
   try {
     const transactions = await prisma.transaction.findMany({
+      where: isAdmin ? {} : { userId },
       orderBy: { date: "desc" },
     });
     return NextResponse.json(transactions);
@@ -13,6 +20,9 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const session = await getAuthSession();
+  if (!session) return unauthorized();
+
   try {
     const body = await req.json();
     const { type, categorie, montant, date, description, notes } = body;
@@ -23,6 +33,7 @@ export async function POST(req: NextRequest) {
 
     const transaction = await prisma.transaction.create({
       data: {
+        userId: session.user.id,
         type,
         categorie,
         montant: parseFloat(montant),

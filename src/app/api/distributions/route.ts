@@ -1,9 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getAuthSession, unauthorized } from "@/lib/session";
 
 export async function GET() {
+  const session = await getAuthSession();
+  if (!session) return unauthorized();
+  const isAdmin = session.user.role === "ADMIN";
+  const userId = session.user.id;
+
   try {
     const distributions = await prisma.distributionAliment.findMany({
+      where: isAdmin ? {} : { aliment: { userId } },
       orderBy: { date: "desc" },
       take: 100,
       include: {
@@ -17,6 +24,8 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const session = await getAuthSession();
+  if (!session) return unauthorized();
   try {
     const body = await req.json();
     const { alimentId, quantite, date, cageNumero, notes } = body;

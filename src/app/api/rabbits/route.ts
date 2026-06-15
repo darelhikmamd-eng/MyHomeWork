@@ -1,10 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { MAX_FEMELLES_PAR_MALE } from "@/lib/reproduction";
+import { getAuthSession, unauthorized } from "@/lib/session";
 
 export async function GET() {
+  const session = await getAuthSession();
+  if (!session) return unauthorized();
+  const isAdmin = session.user.role === "ADMIN";
+  const userId = session.user.id;
+
   try {
     const rabbits = await prisma.rabbit.findMany({
+      where: isAdmin ? {} : { userId },
       orderBy: { createdAt: "desc" },
       include: {
         accouplementsMale: {
@@ -52,6 +59,9 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const session = await getAuthSession();
+  if (!session) return unauthorized();
+
   try {
     const body = await req.json();
     const { name, identifiant, race, sexe, dateNaissance, poids, couleur, statut, cageNumero, notes } = body;
@@ -67,6 +77,7 @@ export async function POST(req: NextRequest) {
 
     const rabbit = await prisma.rabbit.create({
       data: {
+        userId: session.user.id,
         name,
         identifiant,
         race,

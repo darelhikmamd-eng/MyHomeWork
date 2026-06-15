@@ -3,13 +3,20 @@ import { prisma } from "@/lib/prisma";
 import { addDays } from "@/lib/utils";
 import { MAX_FEMELLES_PAR_MALE } from "@/lib/reproduction";
 import { genererTachesAccouplement } from "@/lib/taches";
+import { getAuthSession, unauthorized } from "@/lib/session";
 
 // Cast needed while Prisma IDE types are stale (dateMiseBas renamed from dateGestation)
 type WithDateMiseBas<T> = Omit<T, "dateGestation"> & { dateMiseBas: Date | null };
 
 export async function GET() {
+  const session = await getAuthSession();
+  if (!session) return unauthorized();
+  const isAdmin = session.user.role === "ADMIN";
+  const userId = session.user.id;
+
   try {
     const accouplements = await prisma.accouplement.findMany({
+      where: isAdmin ? {} : { userId },
       orderBy: { createdAt: "desc" },
       include: {
         pere: { select: { id: true, name: true, identifiant: true, race: true } },
@@ -23,6 +30,9 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const session = await getAuthSession();
+  if (!session) return unauthorized();
+
   try {
     const body = await req.json();
     const { pereId, mereId, dateAccouplement, couleurVulve, notes } = body;
@@ -64,6 +74,7 @@ export async function POST(req: NextRequest) {
 
     const accouplement = await prisma.accouplement.create({
       data: {
+        userId: session.user.id,
         pereId,
         mereId,
         dateAccouplement: dateAcc,

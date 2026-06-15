@@ -1,9 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getAuthSession, unauthorized } from "@/lib/session";
 
 export async function GET() {
+  const session = await getAuthSession();
+  if (!session) return unauthorized();
+  const isAdmin = session.user.role === "ADMIN";
+  const userId = session.user.id;
+
   try {
     const aliments = await prisma.aliment.findMany({
+      where: isAdmin ? {} : { userId },
       orderBy: { nom: "asc" },
       include: {
         distributions: {
@@ -19,6 +26,9 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const session = await getAuthSession();
+  if (!session) return unauthorized();
+
   try {
     const body = await req.json();
     const { nom, type, unite, stockActuel, stockMin, prixUnitaire, fournisseur, notes } = body;
@@ -29,6 +39,7 @@ export async function POST(req: NextRequest) {
 
     const aliment = await prisma.aliment.create({
       data: {
+        userId: session.user.id,
         nom,
         type,
         unite: unite || "kg",

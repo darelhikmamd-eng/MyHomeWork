@@ -1,9 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getAuthSession, unauthorized } from "@/lib/session";
 
 export async function GET() {
+  const session = await getAuthSession();
+  if (!session) return unauthorized();
+  const isAdmin = session.user.role === "ADMIN";
+  const userId = session.user.id;
+
   try {
     const logs = await prisma.santeLog.findMany({
+      where: isAdmin ? {} : { rabbit: { userId } },
       orderBy: { date: "desc" },
       include: {
         rabbit: { select: { id: true, name: true, identifiant: true, race: true } },
@@ -16,6 +23,9 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const session = await getAuthSession();
+  if (!session) return unauthorized();
+
   try {
     const body = await req.json();
     const { rabbitId, type, description, date, prochainRappel, delaiAttenteJours, veterinaire, cout, notes } = body;

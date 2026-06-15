@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getAuthSession, unauthorized } from "@/lib/session";
 
 // POST /api/notifications/[id]/reopen
 // Rouvre un ticket précédemment fermé. La notification réapparaîtra dans la liste active.
@@ -7,6 +8,8 @@ export async function POST(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const session = await getAuthSession();
+  if (!session) return unauthorized();
   try {
     const { id: notificationId } = await params;
 
