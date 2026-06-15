@@ -74,7 +74,12 @@ export default function DiagnosticPage() {
   const [result, setResult] = useState<DiagnosticResult | null>(null);
   const [error, setError] = useState("");
   const [dragOver, setDragOver] = useState(false);
+  const [cameraOpen, setCameraOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
 
   useEffect(() => {
     fetch("/api/rabbits")
@@ -110,6 +115,46 @@ export default function DiagnosticPage() {
     setImageFile(null);
     setImagePreview(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  async function openCamera() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } },
+      });
+      streamRef.current = stream;
+      setCameraOpen(true);
+      setTimeout(() => {
+        if (videoRef.current) videoRef.current.srcObject = stream;
+      }, 80);
+    } catch {
+      cameraInputRef.current?.click();
+    }
+  }
+
+  function closeCamera() {
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+    setCameraOpen(false);
+  }
+
+  function capturePhoto() {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    if (!video || !canvas) return;
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext("2d")?.drawImage(video, 0, 0);
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) return;
+        const file = new File([blob], `photo-${Date.now()}.jpg`, { type: "image/jpeg" });
+        handleFile(file);
+        closeCamera();
+      },
+      "image/jpeg",
+      0.92
+    );
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -228,25 +273,46 @@ export default function DiagnosticPage() {
             </h2>
 
             {!imagePreview ? (
-              <div
-                onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-                onDragLeave={() => setDragOver(false)}
-                onDrop={handleDrop}
-                onClick={() => fileInputRef.current?.click()}
-                className={cn(
-                  "border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors",
-                  dragOver ? "border-purple-400 bg-purple-50" : "border-earth-200 hover:border-purple-300 hover:bg-purple-50/50"
-                )}
-              >
-                <Upload className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-                <p className="text-sm font-medium text-muted-foreground">
-                  Glissez une photo ou <span className="text-purple-600 underline">cliquez pour parcourir</span>
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">JPG, PNG, WEBP — max 10 Mo</p>
+              <div className="space-y-2">
+                <div
+                  onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+                  onDragLeave={() => setDragOver(false)}
+                  onDrop={handleDrop}
+                  onClick={() => fileInputRef.current?.click()}
+                  className={cn(
+                    "border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors",
+                    dragOver ? "border-purple-400 bg-purple-50" : "border-earth-200 hover:border-purple-300 hover:bg-purple-50/50"
+                  )}
+                >
+                  <Upload className="h-7 w-7 text-muted-foreground mx-auto mb-2" />
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Glissez une photo ou <span className="text-purple-600 underline">cliquez pour parcourir</span>
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">JPG, PNG, WEBP — max 10 Mo</p>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={openCamera}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100 active:bg-purple-200 transition-colors text-sm font-semibold"
+                >
+                  <Camera className="h-4 w-4" />
+                  Prendre une photo
+                </button>
+
+                {/* Fallback input pour mobile (capture="environment") */}
                 <input
-                  ref={fileInputRef}
+                  ref={cameraInputRef}
                   type="file"
                   accept="image/*"
+                  capture="environment"
                   className="hidden"
                   onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
                 />
@@ -453,6 +519,65 @@ export default function DiagnosticPage() {
           )}
         </div>
       </div>
+
+      {/* ── Modal Caméra ──────────────────────────────────────────────── */}
+      {cameraOpen && (
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl overflow-hidden w-full max-w-lg shadow-2xl">
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-earth-100">
+              <h3 className="font-semibold text-foreground flex items-center gap-2">
+                <Camera className="h-4 w-4 text-purple-600" />
+                Prendre une photo
+              </h3>
+              <button
+                type="button"
+                onClick={closeCamera}
+                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-earth-100 transition-colors text-muted-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Flux vidéo */}
+            <div className="relative bg-black aspect-video">
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                className="w-full h-full object-cover"
+              />
+              {/* Viseur */}
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <div className="w-48 h-48 border-2 border-white/60 rounded-xl" />
+              </div>
+            </div>
+
+            {/* Bouton capture */}
+            <div className="p-4 flex gap-3">
+              <button
+                type="button"
+                onClick={closeCamera}
+                className="flex-1 py-2.5 rounded-xl border border-earth-200 text-muted-foreground hover:bg-earth-50 transition-colors text-sm font-medium"
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                onClick={capturePhoto}
+                className="flex-[2] py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-xl flex items-center justify-center gap-2 transition-colors text-sm"
+              >
+                <Camera className="h-4 w-4" />
+                Capturer la photo
+              </button>
+            </div>
+          </div>
+
+          {/* Canvas caché pour la capture */}
+          <canvas ref={canvasRef} className="hidden" />
+        </div>
+      )}
     </div>
   );
 }
