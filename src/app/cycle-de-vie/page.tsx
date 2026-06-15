@@ -80,7 +80,7 @@ export default function CycleDeViePage() {
     setConfirmDelMb(null);
     fetchData();
   }
-  const [mbModal, setMbModal] = useState<{ accId: string; nombreNes: string; nombreVivants: string } | null>(null);
+  const [mbModal, setMbModal] = useState<{ accId: string; nombreNes: string; nombreVivants: string; dateMiseBas: string } | null>(null);
   const [mbLoading, setMbLoading] = useState(false);
   const [mbError, setMbError] = useState("");
 
@@ -95,7 +95,7 @@ export default function CycleDeViePage() {
     await fetch(`/api/accouplements/${mbModal.accId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ statut: "mise_bas", nombreNes: nes, nombreVivants: vivants }),
+      body: JSON.stringify({ statut: "mise_bas", nombreNes: nes, nombreVivants: vivants, dateMiseBas: mbModal.dateMiseBas || new Date().toISOString() }),
     });
     setMbModal(null);
     setMbLoading(false);
@@ -326,7 +326,7 @@ export default function CycleDeViePage() {
             </h2>
             {enrichedAccouplements.filter(a => a.statut === "en_cours").length > 0 && (
               <button
-                onClick={() => { setMbModal({ accId: "", nombreNes: "", nombreVivants: "" }); setMbError(""); }}
+                onClick={() => { setMbModal({ accId: "", nombreNes: "", nombreVivants: "", dateMiseBas: new Date().toISOString().split("T")[0] }); setMbError(""); }}
                 className="inline-flex items-center gap-2 bg-forest-600 hover:bg-forest-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
               >
                 <Plus className="h-4 w-4" />
@@ -753,20 +753,29 @@ export default function CycleDeViePage() {
               })()}
             </div>
 
-            {/* Vérification date prévue */}
+            {/* Date réelle + Nés / Vivants */}
             {(() => {
               const selectedAcc = enrichedAccouplements.find(x => x.id === mbModal.accId);
-              const dateNonAtteinte = selectedAcc?.dateMiseBas && new Date(selectedAcc.dateMiseBas) > new Date();
-              const fieldsDisabled = !mbModal.accId || !!dateNonAtteinte;
+              const dateNonAtteinte = selectedAcc?.dateMiseBas && new Date(selectedAcc.dateMiseBas) > new Date(mbModal.dateMiseBas);
+              const fieldsDisabled = !mbModal.accId;
               return (
                 <>
+                  {/* Date réelle de mise-bas */}
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium">Date de mise-bas réelle <span className="text-red-500">*</span></label>
+                    <input
+                      type="date"
+                      value={mbModal.dateMiseBas}
+                      onChange={(e) => setMbModal(m => m ? { ...m, dateMiseBas: e.target.value } : null)}
+                      className="w-full h-10 px-3 rounded-lg border border-earth-200 bg-cream-50 text-sm focus:outline-none focus:ring-2 focus:ring-forest-400"
+                    />
+                  </div>
                   {dateNonAtteinte && selectedAcc && (
                     <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5 text-xs text-amber-800">
                       <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5 text-amber-600" />
                       <span>
-                        La mise-bas pour ce couple n&apos;est pas encore prévue avant le{" "}
-                        <strong>{formatDate(selectedAcc.dateMiseBas!)}</strong>.
-                        Vous ne pouvez pas enregistrer une mise-bas avant cette date.
+                        La date choisie est avant la mise-bas prévue le{" "}
+                        <strong>{formatDate(selectedAcc.dateMiseBas!)}</strong>. Vérifiez la date.
                       </span>
                     </div>
                   )}
