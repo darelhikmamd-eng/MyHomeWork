@@ -20,10 +20,9 @@ interface AddRabbitFormProps {
 
 async function generateIdentifiant(): Promise<string> {
   try {
-    const res = await fetch("/api/rabbits");
+    const res = await fetch("/api/rabbits/next-id");
     const data = await res.json();
-    const count = Array.isArray(data) ? data.length + 1 : 1;
-    return `LAP-${String(count).padStart(3, "0")}`;
+    return data.identifiant || `LAP-${String(Date.now()).slice(-3)}`;
   } catch {
     return `LAP-${String(Date.now()).slice(-3)}`;
   }
