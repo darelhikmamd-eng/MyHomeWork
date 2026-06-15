@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { TrendingUp, BarChart3, PieChart, Activity, Loader2, Users, Scale, Wheat, TrendingDown, Info, Baby, UtensilsCrossed } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { TrendingUp, BarChart3, PieChart, Activity, Loader2, Users, Scale, Wheat, TrendingDown, Info, Baby, UtensilsCrossed, Award, CheckCircle2, AlertTriangle, XCircle, Printer } from "lucide-react";
 import {
   BarChart,
   Bar,
@@ -15,6 +15,7 @@ import {
   PieChart as RechartsPieChart,
   Pie,
   Cell,
+  Legend,
 } from "recharts";
 
 // Standard rabbit growth reference curve (theoretical, no weight logs yet)
@@ -97,6 +98,22 @@ const tooltipStyle = {
   fontSize: "12px",
 };
 
+function calcPerformanceScore(kpis: Kpis, gte: Gte): { score: number; label: string; scoreClass: string; bgClass: string; barClass: string } {
+  let pts = 0;
+  const mort = parseFloat(kpis.tauxMortalite);
+  if (!isNaN(mort)) { if (mort < 10) pts += 25; else if (mort < 20) pts += 15; else pts += 5; }
+  const gest = parseFloat(kpis.tauxGestation);
+  if (!isNaN(gest)) { if (gest >= 80) pts += 25; else if (gest >= 60) pts += 15; else pts += 5; }
+  const prod = parseFloat(kpis.productivite);
+  if (!isNaN(prod)) { if (prod >= 7) pts += 25; else if (prod >= 5) pts += 15; else pts += 5; }
+  const survie = parseFloat(gte.tauxSurviePresevrage.valeur);
+  if (!isNaN(survie)) { if (survie >= 85) pts += 25; else if (survie >= 70) pts += 15; else pts += 5; }
+  if (pts >= 85) return { score: pts, label: "Excellent", scoreClass: "text-forest-700", bgClass: "bg-forest-50 border-forest-300", barClass: "bg-forest-500" };
+  if (pts >= 65) return { score: pts, label: "Bon", scoreClass: "text-sage-600", bgClass: "bg-sage-50 border-sage-300", barClass: "bg-sage-500" };
+  if (pts >= 40) return { score: pts, label: "À améliorer", scoreClass: "text-amber-600", bgClass: "bg-amber-50 border-amber-300", barClass: "bg-amber-500" };
+  return { score: pts, label: "Insuffisant", scoreClass: "text-red-600", bgClass: "bg-red-50 border-red-300", barClass: "bg-red-500" };
+}
+
 export default function RapportsPage() {
   const [data, setData] = useState<RapportData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -127,6 +144,18 @@ export default function RapportsPage() {
 
   const { total, statutDistribution, raceDistribution, kpis, reproductionData, gte, croissanceReelle } = data;
   const maxStatut = Math.max(...statutDistribution.map((s) => s.value), 1);
+  const perf = calcPerformanceScore(kpis, gte);
+
+  const recommendations: { icon: React.ElementType; title: string; text: string; type: "danger" | "warning" | "success" | "info" }[] = [];
+  const mortVal = parseFloat(kpis.tauxMortalite);
+  const gestVal = parseFloat(kpis.tauxGestation);
+  const prodVal = parseFloat(kpis.productivite);
+  if (!isNaN(mortVal) && mortVal > 15) recommendations.push({ icon: AlertTriangle, title: "Mortalité à la naissance élevée", text: `Votre taux est de ${kpis.tauxMortalite}. Vérifiez les conditions de mise-bas (température, nid, tranquillité de la mère).`, type: "danger" });
+  if (!isNaN(gestVal) && gestVal < 70) recommendations.push({ icon: AlertTriangle, title: "Taux de gestation faible", text: `Seulement ${kpis.tauxGestation} des saillies aboutissent. Vérifiez l\'état corporel des femelles et le timing des accouplements.`, type: "warning" });
+  if (!isNaN(prodVal) && prodVal >= 7) recommendations.push({ icon: CheckCircle2, title: "Excellente productivité", text: `${kpis.productivite} est au-dessus de l\'objectif de 7 lapereaux/portée. Continuez vos pratiques actuelles.`, type: "success" });
+  if (!gte.margeAlimentaire.positif && (gte.margeAlimentaire.recettesVente > 0 || gte.margeAlimentaire.depensesAlim > 0)) recommendations.push({ icon: AlertTriangle, title: "Marge alimentaire négative", text: "Les recettes de vente ne couvrent pas les dépenses alimentaires. Revoyez vos prix de vente ou réduisez le gaspillage.", type: "danger" });
+  if (gte.nbPesees < 5) recommendations.push({ icon: XCircle, title: "Peu de pesées enregistrées", text: "Enregistrez des pesées régulières (1×/semaine par lapin) pour calculer le GMQ réel et suivre la croissance du troupeau.", type: "info" });
+  if (gte.tauxSurviePresevrage.conforme === false) recommendations.push({ icon: AlertTriangle, title: "Survie pré-sevrage en dessous de la cible", text: `Taux à ${gte.tauxSurviePresevrage.valeur} (cible ≥ 85%). Vérifiez la densité des portées, l\'alimentation des mères allaitantes et la chaleur des nids.`, type: "warning" });
 
   // Fusionner les données théoriques et réelles pour le graphique de croissance
   const mergedCroissance = (() => {
@@ -148,16 +177,67 @@ export default function RapportsPage() {
   return (
     <div className="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Rapports</h1>
+          <h1 className="text-2xl font-bold text-foreground">Rapports & Analytics</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Analyse des performances de la ferme
+            Analyse des performances — {new Date().toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}
           </p>
         </div>
-        <div className="flex items-center gap-2 bg-forest-50 border border-forest-200 rounded-xl px-4 py-2.5">
-          <Users className="h-4 w-4 text-forest-600" />
-          <span className="text-sm font-bold text-forest-700">{total} lapins</span>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 bg-forest-50 border border-forest-200 rounded-xl px-3 py-2">
+            <Users className="h-4 w-4 text-forest-600" />
+            <span className="text-sm font-bold text-forest-700">{total} lapin{total > 1 ? "s" : ""}</span>
+          </div>
+          <button
+            onClick={() => window.print()}
+            className="inline-flex items-center gap-2 text-sm font-medium px-3 py-2 border border-earth-200 rounded-xl bg-white hover:bg-earth-50 transition-colors"
+            title="Imprimer le rapport"
+          >
+            <Printer className="h-4 w-4 text-muted-foreground" />
+            <span className="hidden sm:inline">Imprimer</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Score de performance global */}
+      <div className={`rounded-2xl border-2 p-5 shadow-sm ${perf.bgClass}`}>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-14 h-14 bg-white rounded-xl border border-earth-200 flex items-center justify-center shadow-sm flex-shrink-0">
+              <Award className={`h-7 w-7 ${perf.scoreClass}`} />
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Score de performance global</p>
+              <p className={`text-3xl font-bold ${perf.scoreClass}`}>{perf.score}<span className="text-base font-normal text-muted-foreground">/100</span></p>
+              <span className={`text-sm font-semibold ${perf.scoreClass}`}>{perf.label}</span>
+            </div>
+          </div>
+          <div className="flex-1 max-w-sm">
+            <div className="h-3 bg-white/70 rounded-full overflow-hidden border border-earth-200">
+              <div className={`h-full rounded-full transition-all ${perf.barClass}`} style={{ width: `${perf.score}%` }} />
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">Basé sur la mortalité, le taux de gestation, la productivité et la survie pré-sevrage</p>
+          </div>
+          {recommendations.length > 0 && (
+            <div className="flex items-center gap-1.5 text-xs font-medium">
+              {recommendations.filter(r => r.type === "danger").length > 0 && (
+                <span className="px-2 py-1 bg-red-100 text-red-700 rounded-full border border-red-200">
+                  {recommendations.filter(r => r.type === "danger").length} critique{recommendations.filter(r => r.type === "danger").length > 1 ? "s" : ""}
+                </span>
+              )}
+              {recommendations.filter(r => r.type === "warning").length > 0 && (
+                <span className="px-2 py-1 bg-amber-100 text-amber-700 rounded-full border border-amber-200">
+                  {recommendations.filter(r => r.type === "warning").length} alerte{recommendations.filter(r => r.type === "warning").length > 1 ? "s" : ""}
+                </span>
+              )}
+              {recommendations.filter(r => r.type === "success").length > 0 && (
+                <span className="px-2 py-1 bg-forest-100 text-forest-700 rounded-full border border-forest-200">
+                  {recommendations.filter(r => r.type === "success").length} point{recommendations.filter(r => r.type === "success").length > 1 ? "s" : ""} fort{recommendations.filter(r => r.type === "success").length > 1 ? "s" : ""}
+                </span>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -294,10 +374,10 @@ export default function RapportsPage() {
       {/* KPI Summary */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
         {[
-          { label: "Taux de survie portées", value: kpis.tauxSurvie, icon: Activity, color: "text-forest-600", bg: "bg-forest-100" },
-          { label: "Moy. lapereaux/portée", value: kpis.productivite, icon: TrendingUp, color: "text-sage-600", bg: "bg-sage-100" },
-          { label: "Taux de gestation", value: kpis.tauxGestation, icon: BarChart3, color: "text-amber-600", bg: "bg-amber-100" },
-          { label: "Taux de mortalité", value: kpis.tauxMortalite, icon: PieChart, color: "text-red-600", bg: "bg-red-100" },
+          { label: "Survie des portées", value: kpis.tauxSurvie, icon: Activity, color: "text-forest-600", bg: "bg-forest-100", norm: "Cible : ≥ 85%" },
+          { label: "Lapereaux / portée", value: kpis.productivite, icon: TrendingUp, color: "text-sage-600", bg: "bg-sage-100", norm: "Objectif : ≥ 7" },
+          { label: "Taux de gestation", value: kpis.tauxGestation, icon: BarChart3, color: "text-amber-600", bg: "bg-amber-100", norm: "Cible : ≥ 80%" },
+          { label: "Mortalité à la naissance", value: kpis.tauxMortalite, icon: PieChart, color: "text-red-600", bg: "bg-red-100", norm: "Seuil : < 10%" },
         ].map((kpi) => (
           <div key={kpi.label} className="bg-white rounded-xl border border-earth-100 p-4 shadow-sm">
             <div className="flex items-center gap-3 mb-2">
@@ -307,6 +387,9 @@ export default function RapportsPage() {
               <span className="text-xs text-muted-foreground font-medium">{kpi.label}</span>
             </div>
             <p className={`text-2xl font-bold ${kpi.color}`}>{kpi.value}</p>
+            <p className="text-[10px] text-muted-foreground mt-1.5 flex items-center gap-1">
+              <Info className="h-3 w-3" />{kpi.norm}
+            </p>
           </div>
         ))}
       </div>
@@ -327,6 +410,7 @@ export default function RapportsPage() {
               <XAxis dataKey="mois" tick={{ fontSize: 10, fill: "#8b6d42" }} />
               <YAxis tick={{ fontSize: 11, fill: "#8b6d42" }} />
               <Tooltip contentStyle={tooltipStyle} />
+              <Legend wrapperStyle={{ fontSize: 11 }} />
               <Bar dataKey="lapereaux" fill="#5a9e5a" name="Lapereaux nés" radius={[4, 4, 0, 0]} />
               <Bar dataKey="portees" fill="#a8be9b" name="Portées" radius={[4, 4, 0, 0]} />
             </BarChart>
@@ -350,6 +434,7 @@ export default function RapportsPage() {
               <XAxis dataKey="semaine" tick={{ fontSize: 11, fill: "#8b6d42" }} />
               <YAxis tick={{ fontSize: 11, fill: "#8b6d42" }} />
               <Tooltip contentStyle={tooltipStyle} />
+              <Legend wrapperStyle={{ fontSize: 11 }} />
               <Line
                 type="monotone"
                 dataKey="theorique"
@@ -435,7 +520,7 @@ export default function RapportsPage() {
             </p>
             <div className="grid grid-cols-2 gap-3">
               {[
-                { label: "Taux de mortalité", value: kpis.tauxMortalite, color: "text-red-600" },
+                { label: "Mortalité à la naissance", value: kpis.tauxMortalite, color: "text-red-600" },
                 { label: "Productivité", value: kpis.productivite, color: "text-forest-600" },
                 { label: "Poids moyen adulte", value: kpis.poidsMoyenAdulte, color: "text-earth-600" },
                 { label: "Taux de gestation", value: kpis.tauxGestation, color: "text-sage-600" },
@@ -449,6 +534,33 @@ export default function RapportsPage() {
           </div>
         </div>
       </div>
+      {/* Recommandations */}
+      {recommendations.length > 0 && (
+        <div className="bg-white rounded-2xl border border-earth-100 shadow-sm p-5 space-y-3">
+          <div className="flex items-center gap-2 mb-1">
+            <Award className="h-4 w-4 text-forest-600" />
+            <h2 className="text-base font-bold text-foreground">Recommandations</h2>
+          </div>
+          {recommendations.map((rec, i) => {
+            const Icon = rec.icon;
+            const styles = {
+              danger:  { border: "border-red-200",    bg: "bg-red-50",    iconColor: "text-red-600",    titleColor: "text-red-700" },
+              warning: { border: "border-amber-200",  bg: "bg-amber-50",  iconColor: "text-amber-600", titleColor: "text-amber-700" },
+              success: { border: "border-forest-200", bg: "bg-forest-50", iconColor: "text-forest-600",titleColor: "text-forest-700" },
+              info:    { border: "border-blue-200",   bg: "bg-blue-50",   iconColor: "text-blue-600",  titleColor: "text-blue-700" },
+            }[rec.type];
+            return (
+              <div key={i} className={`flex items-start gap-3 rounded-xl border p-3.5 ${styles.bg} ${styles.border}`}>
+                <Icon className={`h-4 w-4 mt-0.5 flex-shrink-0 ${styles.iconColor}`} />
+                <div>
+                  <p className={`text-sm font-semibold ${styles.titleColor}`}>{rec.title}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{rec.text}</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

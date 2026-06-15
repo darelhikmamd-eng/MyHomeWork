@@ -143,30 +143,6 @@ export default function CycleDeViePage() {
         fetch("/api/rabbits"),
       ]);
       const accs: Accouplement[] = await accRes.json();
-      // Corrections automatiques au chargement
-      for (const acc of accs) {
-        // 1. Remettre en_cours si mise_bas sans données saisies
-        if (acc.statut === "mise_bas" && acc.nombreNes === null) {
-          await fetch(`/api/accouplements/${acc.id}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ statut: "en_cours" }),
-          });
-          acc.statut = "en_cours";
-        }
-        // 2. Recalculer la dateMiseBas prévue (dateAccouplement + 31j) pour tous les accouplements
-        const prevue = new Date(new Date(acc.dateAccouplement).getTime() + 31 * 24 * 60 * 60 * 1000);
-        const actuelle = acc.dateMiseBas ? new Date(acc.dateMiseBas) : null;
-        const diffJours = actuelle ? Math.abs((actuelle.getTime() - prevue.getTime()) / 86400000) : 999;
-        if (diffJours > 0.5) {
-          await fetch(`/api/accouplements/${acc.id}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ dateMiseBas: prevue.toISOString() }),
-          });
-          acc.dateMiseBas = prevue.toISOString();
-        }
-      }
       setAccouplements(accs);
       setRabbits(await rabRes.json());
     } catch {

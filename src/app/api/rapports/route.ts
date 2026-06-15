@@ -286,7 +286,7 @@ export async function GET() {
           adultes: Number(tauxMortAdultes),
           totalMortsPortees: totalNesPortees - totalVivantsPortees,
           totalNes: totalNesPortees,
-          normeProf: 2.87,
+          normeProf: 5.0,
         },
         gmqMoyen,
         nbPesees: allPoidsLogs.length,
